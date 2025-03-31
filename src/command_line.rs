@@ -36,8 +36,10 @@ pub(crate) enum Commands {
 #[derive(Subcommand)]
 #[group(required = true, multiple = false)]
 pub(crate) enum AllowedToList {
-    // List tables present in the MSI
-    Tables,
     // List the author of the MSI
     Author,
+    // List tables present in the MSI
+    Tables,
+    // List the columns that a given table has.
+    TableColumns { search_term: String },
 }

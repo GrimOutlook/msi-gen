@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, error, info};
 
 use crate::AllowedToList as ATL;
 
@@ -10,19 +10,28 @@ pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, ()> {
     };
 
     match list_item {
-        ATL::Tables => {
-            debug!("Listing tables in MSI");
-            let tables = msi
-                .tables()
-                .map(|t| t.name())
-                .collect::<Vec<&str>>()
-                .join("\n");
-            Ok(tables)
-        }
         ATL::Author => {
             debug!("Listing author of MSI");
             let author = msi.summary_info().author().unwrap_or_default();
             Ok(author.to_owned())
+        }
+        ATL::Tables => {
+            debug!("Listing tables in MSI");
+            let tables = msi.tables().map(|t| t.name()).collect::<Vec<&str>>();
+            Ok(tables.join("\n"))
+        }
+        ATL::TableColumns { search_term } => {
+            debug!("Listing the columns of table {} in MSI", search_term);
+            let Some(table) = msi.get_table(&search_term) else {
+                error!("Table {} could not be found in MSI", search_term);
+                return Err(());
+            };
+            let columns = table
+                .columns()
+                .iter()
+                .map(|c| c.name())
+                .collect::<Vec<&str>>();
+            Ok(columns.join("\n"))
         }
     }
 }
