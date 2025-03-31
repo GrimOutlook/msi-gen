@@ -28,18 +28,16 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         input_file: String,
 
-        #[command(flatten)]
-        list_args: ListArgs,
+        #[command(subcommand)]
+        list_args: AllowedToList,
     },
 }
 
-#[derive(Args)]
+#[derive(Subcommand)]
 #[group(required = true, multiple = false)]
-pub(crate) struct ListArgs {
+pub(crate) enum AllowedToList {
     // List tables present in the MSI
-    #[arg(long)]
-    pub(crate) tables: bool,
+    Tables,
     // List the author of the MSI
-    #[arg(long)]
-    pub(crate) author: bool,
+    Author,
 }

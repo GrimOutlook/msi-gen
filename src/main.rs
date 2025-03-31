@@ -6,7 +6,7 @@ mod lister;
 use std::process::ExitCode;
 
 use clap::Parser;
-use command_line::{App, Commands, ListArgs};
+use command_line::{AllowedToList, App, Commands};
 use log::{error, info};
 
 fn main() -> ExitCode {
@@ -37,7 +37,13 @@ fn main() -> ExitCode {
         Commands::List {
             input_file,
             list_args,
-        } => lister::list(input_file, list_args),
+        } => match lister::list(input_file, list_args) {
+            Ok(output) => {
+                println!("{}", output);
+                Ok(())
+            }
+            Err(_) => Err(()),
+        },
     };
 
     let Ok(_ret) = ret else {

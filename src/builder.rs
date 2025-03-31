@@ -32,7 +32,7 @@ pub(crate) fn build(config_path: &str, input_directory: &str, output_path: &str)
     // Set the author
     package
         .summary_info_mut()
-        .set_author(c.author.unwrap_or_default());
+        .set_author(c.product_info.author.unwrap_or_default());
 
     write_msi(package, output_path)
 }
