@@ -1,5 +1,7 @@
 {
     "cSpell.words": [
-        "msitools"
+        "flexi_logger",
+        "msitools",
+        "serde"
     ]
 }

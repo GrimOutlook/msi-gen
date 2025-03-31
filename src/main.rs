@@ -1,10 +1,15 @@
+mod builder;
 mod command_line;
+mod config;
+mod lister;
+
+use std::process::ExitCode;
 
 use clap::Parser;
 use command_line::{App, Commands, ListArgs};
 use log::{error, info};
 
-fn main() {
+fn main() -> ExitCode {
     // Read the passed in arguments
     let args = App::parse();
     let log_level = match args.log_level {
@@ -12,37 +17,34 @@ fn main() {
         None => "INFO".to_string(),
     };
     // Setup the logger
-    flexi_logger::Logger::try_with_env_or_str(log_level)
-        .unwrap()
+    flexi_logger::Logger::try_with_env_or_str(log_level.clone())
+        .unwrap_or_else(|_| {
+            panic!(
+                "Couldn't create a logger using env [$RUST_LOG] or input string [{}]",
+                log_level
+            )
+        })
         .start()
-        .unwrap();
+        .expect("Couldn't start the logger");
 
     info!("Starting MSI Builder...");
-    match args.command {
+    let ret = match args.command {
         Commands::Build {
             config,
             input_directory,
-        } => todo!(),
+            output_path,
+        } => builder::build(&config, &input_directory, &output_path),
         Commands::List {
             input_file,
             list_args,
-        } => {
-            list_info(input_file, list_args);
-        }
-    }
-}
-
-fn list_info(input_file: String, list_args: ListArgs) -> Result<(), ()> {
-    info!("Reading MSI {}", input_file);
-    let msi = match msi::open_rw(input_file) {
-        Ok(msi) => msi,
-        Err(_) => return Err(()),
+        } => lister::list(input_file, list_args),
     };
 
-    if list_args.tables {
-        msi.tables().for_each(|f| println!("{:?}", f.name()));
-        return Ok(());
-    }
+    let Ok(_ret) = ret else {
+        error!("MSI Builder operation failed");
+        return ExitCode::FAILURE;
+    };
 
-    Ok(())
+    info!("MSI Builder operation succeeded");
+    ExitCode::SUCCESS
 }

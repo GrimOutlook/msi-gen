@@ -8,3 +8,5 @@ clap = { version = "4.5.34", features = ["derive"] }
 flexi_logger = "0.29.8"
 log = "0.4.27"
 msi = "0.8.0"
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.8.20"

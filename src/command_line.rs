@@ -19,6 +19,9 @@ pub(crate) enum Commands {
         /// Directory storing files used to be added to MSI
         #[arg(short, long)]
         input_directory: String,
+        /// Filepath to output. This should end with .msi
+        #[arg(short, long)]
+        output_path: String,
     },
     List {
         /// Path to MSI to read from
@@ -34,6 +37,9 @@ pub(crate) enum Commands {
 #[group(required = true, multiple = false)]
 pub(crate) struct ListArgs {
     // List tables present in the MSI
-    #[arg(short, long)]
+    #[arg(long)]
     pub(crate) tables: bool,
+    // List the author of the MSI
+    #[arg(long)]
+    pub(crate) author: bool,
 }
