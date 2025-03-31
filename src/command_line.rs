@@ -41,5 +41,5 @@ pub(crate) enum AllowedToList {
     // List tables present in the MSI
     Tables,
     // List the columns that a given table has.
-    TableColumns { search_term: String },
+    TableColumns { table: String },
 }

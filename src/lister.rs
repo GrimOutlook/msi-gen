@@ -20,10 +20,10 @@ pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, ()> {
             let tables = msi.tables().map(|t| t.name()).collect::<Vec<&str>>();
             Ok(tables.join("\n"))
         }
-        ATL::TableColumns { search_term } => {
-            debug!("Listing the columns of table {} in MSI", search_term);
-            let Some(table) = msi.get_table(&search_term) else {
-                error!("Table {} could not be found in MSI", search_term);
+        ATL::TableColumns { table } => {
+            debug!("Listing the columns of table {} in MSI", table);
+            let Some(table) = msi.get_table(&table) else {
+                error!("Table {} could not be found in MSI", table);
                 return Err(());
             };
             let columns = table
