@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use clap::{arg, Parser, Subcommand};
 
 #[derive(Parser)]
@@ -15,18 +16,18 @@ pub(crate) enum Commands {
     Build {
         /// Path to config to build from
         #[arg(short, long)]
-        config: String,
+        config: Utf8PathBuf,
         /// Directory storing files used to be added to MSI
         #[arg(short, long)]
-        input_directory: String,
+        input_directory: Utf8PathBuf,
         /// Filepath to output. This should end with .msi
         #[arg(short, long)]
-        output_path: String,
+        output_path: Utf8PathBuf,
     },
     List {
         /// Path to MSI to read from
         #[arg(short, long)]
-        input_file: String,
+        input_file: Utf8PathBuf,
 
         #[command(subcommand)]
         list_args: AllowedToList,

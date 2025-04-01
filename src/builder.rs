@@ -4,6 +4,7 @@ use std::{
     rc::Rc,
 };
 
+use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
 use crate::{config::MsiConfig, files, models::error::MsiError};
@@ -13,10 +14,13 @@ use crate::{helpers::error, info};
 pub(crate) type Msi = Package<Cursor<Vec<u8>>>;
 
 pub(crate) fn build(
-    config_path: &str,
-    input_directory: &str,
-    output_path: &str,
+    config_path: &Utf8PathBuf,
+    input_directory: &Utf8PathBuf,
+    output_path: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
+    info!("Building MSI at output path {}", output_path);
+    // Validate paths before continuing
+    validate_paths(config_path, input_directory, output_path)?;
     // Read the config from the passed in path
     let raw_config = match read_to_string(config_path) {
         Ok(c) => c,
@@ -55,7 +59,7 @@ fn set_author(package: &mut Msi, config: Rc<MsiConfig>) {
         .set_author(config.summary_info.author.clone().unwrap_or_default());
 }
 
-fn write_msi(package: Msi, output_path: &str) -> Result<(), MsiError> {
+fn write_msi(package: Msi, output_path: &Utf8PathBuf) -> Result<(), MsiError> {
     let cursor = package.into_inner().unwrap();
     let mut file = match File::create(output_path) {
         Ok(file) => file,
@@ -71,7 +75,7 @@ fn write_msi(package: Msi, output_path: &str) -> Result<(), MsiError> {
         }
         Err(e) => {
             let msg = error!("Failed to write MSI to location {}", output_path);
-            return Err(MsiError::nested(msg, e));
+            Err(MsiError::nested(msg, e))
         }
     }
 }
@@ -96,5 +100,62 @@ fn check_config(config: &MsiConfig) -> Result<(), MsiError> {
         }
     }
 
+    Ok(())
+}
+
+pub(crate) fn validate_paths(
+    config_path: &Utf8PathBuf,
+    input_directory: &Utf8PathBuf,
+    output_path: &Utf8PathBuf,
+) -> Result<(), MsiError> {
+    let output_parent_dir = match output_path.canonicalize_utf8() {
+        // Since parent returns None when you are at the root folder it's find
+        // to use the full path if we hit None.
+        Ok(full_path) => {
+            let fp = full_path.clone();
+            let parent_opt = fp.parent();
+            let parent = parent_opt.unwrap_or(&full_path);
+            parent.clone()
+        }
+        Err(e) => {
+            let msg = error!(
+                "Failed to get full path for passed in output path [{}]",
+                output_path
+            );
+            return Err(MsiError::nested(msg, e));
+        }
+    };
+
+    let err_msg = if !config_path.exists() {
+        Some(error!("Config path {} does not exist", config_path))
+    } else if !config_path.is_file() {
+        Some(error!("Config path {} is not a file", config_path))
+    } else if !input_directory.exists() {
+        Some(error!(
+            "Input directory {} does not exists",
+            input_directory
+        ))
+    } else if !input_directory.is_dir() {
+        Some(error!(
+            "Input directory {} is not a directory",
+            input_directory
+        ))
+    } else if output_path.parent().is_none() {
+        Some(error!(
+            "Output path {} is not valid a valid filepath.",
+            output_path
+        ))
+    } else if !output_parent_dir.is_dir() {
+        Some(error!(
+            "Output parent directory {} is not a valid directory.",
+            output_parent_dir
+        ))
+    } else {
+        None
+    };
+
+    if let Some(msg) = err_msg {
+        return Err(MsiError::short(msg));
+    }
     Ok(())
 }

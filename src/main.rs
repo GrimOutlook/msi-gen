@@ -44,7 +44,7 @@ fn main() -> ExitCode {
         Commands::List {
             input_file,
             list_args,
-        } => match lister::list(input_file, list_args) {
+        } => match lister::list(&input_file, list_args) {
             Ok(output) => {
                 println!("{}", output);
                 Ok(())

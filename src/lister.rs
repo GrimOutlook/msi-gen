@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use cli_table::{Cell, CellStruct, Style, Table};
 use msi::{Package, Select};
 use std::fs::File;
@@ -6,8 +7,10 @@ use crate::helpers::{debug, error, info};
 
 use crate::{models::error::MsiError, AllowedToList as ATL};
 
-pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, MsiError> {
+pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> Result<String, MsiError> {
     info!("Reading MSI {}", input_file);
+    validate_paths(input_file)?;
+
     let mut msi = match msi::open_rw(input_file) {
         Ok(msi) => msi,
         Err(e) => {
@@ -22,6 +25,21 @@ pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, MsiErro
         ATL::TableColumns { table } => list_table_columns(msi, table),
         ATL::TableContents { table } => list_table_contents(&mut msi, table),
     }
+}
+
+pub(crate) fn validate_paths(input_file: &Utf8PathBuf) -> Result<(), MsiError> {
+    let err_msg = if !input_file.exists() {
+        Some(error!("Input file {} does not exist", input_file))
+    } else if !input_file.is_file() {
+        Some(error!("Input file {} is not a file", input_file))
+    } else {
+        None
+    };
+
+    if let Some(msg) = err_msg {
+        return Err(MsiError::short(msg));
+    }
+    Ok(())
 }
 
 fn list_author(msi: Package<File>) -> Result<String, MsiError> {

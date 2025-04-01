@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use camino::Utf8PathBuf;
 use msi::{Category, Column, Insert, Value};
 
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
 pub(crate) fn add_files(
     package: &mut Msi,
     config: Rc<MsiConfig>,
-    input_directory: &str,
+    input_directory: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
     let directories = add_directories(config, input_directory)?;
 
@@ -43,7 +44,7 @@ pub(crate) fn add_files(
 
 fn add_directories(
     config: Rc<MsiConfig>,
-    input_directory: &str,
+    input_directory: &Utf8PathBuf,
 ) -> Result<Vec<Directory>, MsiError> {
     let mut directories = Vec::new();
     if config.explicit_files.is_some() {
@@ -61,7 +62,7 @@ fn add_directories(
 
 fn add_explicit_path_directories(
     config: Rc<MsiConfig>,
-    input_directory: &str,
+    input_directory: &Utf8PathBuf,
 ) -> Result<Vec<Directory>, MsiError> {
     // TODO: Finish implementing explicit path directories.
     todo!("Explicit paths are currently not supported.");
@@ -69,7 +70,7 @@ fn add_explicit_path_directories(
 
 fn add_default_directories(
     config: Rc<MsiConfig>,
-    input_directory: &str,
+    input_directory: &Utf8PathBuf,
 ) -> Result<Vec<Directory>, MsiError> {
     let files_section = config
         .default_files
@@ -147,7 +148,7 @@ fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
 
 fn scan_directories(
     config: Rc<MsiConfig>,
-    input_directory: &str,
+    input_directory: &Utf8PathBuf,
 ) -> Result<Vec<Directory>, MsiError> {
     Ok(Vec::new())
 }
