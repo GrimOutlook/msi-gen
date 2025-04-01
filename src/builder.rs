@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use log::{error, info};
+use log::{error, info, warn};
 use msi::{Package, PackageType};
 
 use crate::{config::MsiConfig, files};
@@ -28,6 +28,9 @@ pub(crate) fn build(config_path: &str, input_directory: &str, output_path: &str)
             return Err(());
         }
     };
+
+    // Check the config for common errors
+    check_config(&config)?;
 
     // Create an empty MSI that we can populate.
     let cursor = Cursor::new(Vec::new());
@@ -67,4 +70,27 @@ fn write_msi(package: Msi, output_path: &str) -> Result<(), ()> {
             Err(())
         }
     }
+}
+
+fn check_config(config: &MsiConfig) -> Result<(), ()> {
+    if config.default_files.is_none() && config.explicit_files.is_none() {
+        error!("No files specified for MSI. Cancelling...");
+        error!(
+            "Files should be specified under `[default_files]` and `[explicit_files]` sections."
+        );
+        error!("To disable this error use the `--no-files` flag.");
+        return Err(());
+    }
+
+    if let Some(default_files) = &config.default_files {
+        if default_files.program_files.is_none() && default_files.program_files_32.is_none() {
+            error!("No program files found in `[default_files]` section.");
+            error!(
+                "`program_files` or `program_files_32` must be present if `[default_files]` section is used."
+            );
+            return Err(());
+        }
+    }
+
+    Ok(())
 }

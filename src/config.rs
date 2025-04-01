@@ -5,29 +5,10 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub(crate) struct MsiConfig {
-    pub(crate) meta: Option<MetaProperties>,
     pub(crate) product_info: ProductInformationProperties,
     pub(crate) summary_info: SummaryInformationProperties,
-}
-
-/// # Meta Properties
-///
-/// These are properties that control how the MSI config is parsed.
-///
-/// ## Properties
-///
-/// - *explicit_paths* If true, the user needs to specify full paths for install
-///   folders. If false, several filepaths are autocompleted for brevity.
-///   Defaults to false if not specified.
-///     - Specifying `program_files` under the `files` header will autocomplete
-///       to `C:\Program Files\[Manufacturer]\[ProductName]\`.
-///     - Specifying `desktop` under the `files` header will autocomplete to
-///       `C:\Users\[Username]\[Desktop]\`.
-///
-#[derive(Deserialize)]
-#[serde(rename = "meta")]
-pub(crate) struct MetaProperties {
-    pub(crate) explicit_paths: Option<bool>,
+    pub(crate) default_files: Option<DefaultFiles>,
+    pub(crate) explicit_files: Option<DefaultFiles>,
 }
 
 /// # [Product Information Properties](https://learn.microsoft.com/en-us/windows/win32/msi/property-reference)
@@ -58,6 +39,7 @@ pub(crate) struct MetaProperties {
 ///     A unique identifier for the particular product release, represented as a
 ///     string GUID. This ID must vary for different versions and languages. Set
 ///     this to `*` to have the program generate the GUID automatically.
+///
 #[derive(Deserialize)]
 #[serde(rename = "product_info")]
 pub(crate) struct ProductInformationProperties {
@@ -125,6 +107,45 @@ pub(crate) struct SummaryInformationProperties {
     pub(crate) comments: Option<String>,
     pub(crate) generating_application: Option<String>,
 }
+
+/// # Default Files
+///
+/// These are properties that are used to quickly define where source files are
+/// to be placed on the target system.
+///
+/// ## Properties
+///
+/// - *explicit_paths* If true, the user needs to specify full paths for install
+///   folders. If false, several filepaths are autocompleted for brevity.
+///   Defaults to false if not specified.
+///     - Specifying `program_files` under the `default_files` header will copy
+///       the contents of the listed directory to `C:\Program
+///       Files\[Manufacturer]\[ProductName]\`.
+///     - Specifying `program_files_32` under the `default_files` header will
+///       copy the contents of the listed directory to `C:\Program Files
+///       (x86)\[Manufacturer]\[ProductName]\`.
+///     - Specifying `desktop` under the `default_files` header will copy the
+///       contents of the listed directory to `C:\Users\[Username]\[Desktop]\`.
+///
+#[derive(Deserialize)]
+#[serde(rename = "default_files")]
+pub(crate) struct DefaultFiles {
+    pub(crate) program_files: Option<String>,
+    pub(crate) program_files_32: Option<String>,
+    pub(crate) desktop: Option<String>,
+}
+
+/// # Explicit Files
+///
+/// These are properties that are used to give the user more fine grain control
+/// of where source files are placed on the target system.
+///
+/// ## Properties
+///
+///
+#[derive(Deserialize)]
+#[serde(rename = "explicit_files")]
+pub(crate) struct ExplicitFiles {}
 
 #[cfg(test)]
 mod tests {

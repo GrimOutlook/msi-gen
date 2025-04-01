@@ -11,5 +11,8 @@ revision_number = "*"
 template = "x64;1033"
 author = "Dominic Grimaldi"
 
-[files]
+[default_files]
 program_files = "files/pg_files/"
+vital = [
+    "files/pg_files/TestFile.txt",
+]
