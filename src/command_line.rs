@@ -42,4 +42,6 @@ pub(crate) enum AllowedToList {
     Tables,
     // List the columns that a given table has.
     TableColumns { table: String },
+    // List the contents of a given table
+    TableContents { table: String },
 }
