@@ -2,16 +2,19 @@ mod builder;
 mod command_line;
 mod config;
 mod files;
+mod helpers;
 mod lister;
 mod models {
     pub(crate) mod directory;
+    pub mod error;
+    pub(crate) mod file;
 }
 
 use std::process::ExitCode;
 
 use clap::Parser;
 use command_line::{AllowedToList, App, Commands};
-use log::{error, info};
+use helpers::{error, info};
 
 fn main() -> ExitCode {
     // Read the passed in arguments
@@ -46,7 +49,7 @@ fn main() -> ExitCode {
                 println!("{}", output);
                 Ok(())
             }
-            Err(_) => Err(()),
+            Err(e) => Err(e),
         },
     };
 

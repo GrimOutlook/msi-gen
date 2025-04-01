@@ -1,16 +1,20 @@
 use std::rc::Rc;
 
-use log::{error, warn};
 use msi::{Category, Column, Insert, Value};
 
-use crate::{builder::Msi, config::MsiConfig, models::directory::Directory};
+use crate::{
+    builder::Msi,
+    config::MsiConfig,
+    error,
+    models::{directory::Directory, error::MsiError},
+};
 
 pub(crate) fn add_files(
     package: &mut Msi,
     config: Rc<MsiConfig>,
     input_directory: &str,
-) -> Result<(), ()> {
-    let directories = add_directories(config, input_directory);
+) -> Result<(), MsiError> {
+    let directories = add_directories(config, input_directory)?;
 
     create_directory_table(package)?;
 
@@ -37,27 +41,36 @@ pub(crate) fn add_files(
     Ok(())
 }
 
-fn add_directories(config: Rc<MsiConfig>, input_directory: &str) -> Vec<Directory> {
+fn add_directories(
+    config: Rc<MsiConfig>,
+    input_directory: &str,
+) -> Result<Vec<Directory>, MsiError> {
     let mut directories = Vec::new();
     if config.explicit_files.is_some() {
         directories.append(&mut add_explicit_path_directories(
             config.clone(),
             input_directory,
-        ));
+        )?);
     }
     if config.default_files.is_some() {
-        directories.append(&mut add_default_directories(config, input_directory));
+        directories.append(&mut add_default_directories(config, input_directory)?);
     }
 
-    directories
+    Ok(directories)
 }
 
-fn add_explicit_path_directories(config: Rc<MsiConfig>, input_directory: &str) -> Vec<Directory> {
+fn add_explicit_path_directories(
+    config: Rc<MsiConfig>,
+    input_directory: &str,
+) -> Result<Vec<Directory>, MsiError> {
     // TODO: Finish implementing explicit path directories.
     todo!("Explicit paths are currently not supported.");
 }
 
-fn add_default_directories(config: Rc<MsiConfig>, input_directory: &str) -> Vec<Directory> {
+fn add_default_directories(
+    config: Rc<MsiConfig>,
+    input_directory: &str,
+) -> Result<Vec<Directory>, MsiError> {
     let files_section = config
         .default_files
         .as_ref()
@@ -80,7 +93,7 @@ fn add_default_directories(config: Rc<MsiConfig>, input_directory: &str) -> Vec<
         ),
     };
 
-    let dirs = vec![
+    let mut dirs = vec![
         // The value of the DefaultDir column for the root directory entry must
         // be set to the SourceDir property per [this
         // section](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table#root-source-directory)
@@ -106,12 +119,13 @@ fn add_default_directories(config: Rc<MsiConfig>, input_directory: &str) -> Vec<
         },
     ];
 
-    
+    let mut scanned_directories = scan_directories(config, input_directory)?;
+    dirs.append(&mut scanned_directories);
 
-    dirs
+    Ok(dirs)
 }
 
-fn create_directory_table(package: &mut Msi) -> Result<(), ()> {
+fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
     let result = package.create_table(
         "Directory",
         vec![
@@ -124,9 +138,16 @@ fn create_directory_table(package: &mut Msi) -> Result<(), ()> {
     );
 
     if let Err(e) = result {
-        error!("Failed to create directory table: {}", e);
-        return Err(());
+        let err = error!("Failed to create directory table: {}", e);
+        return Err(MsiError::nested(err, Box::new(e)));
     }
 
     Ok(())
+}
+
+fn scan_directories(
+    config: Rc<MsiConfig>,
+    input_directory: &str,
+) -> Result<Vec<Directory>, MsiError> {
+    Ok(Vec::new())
 }

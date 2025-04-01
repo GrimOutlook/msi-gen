@@ -1,15 +1,19 @@
 use cli_table::{Cell, CellStruct, Style, Table};
-use log::{debug, error, info};
 use msi::{Package, Select};
 use std::fs::File;
 
-use crate::AllowedToList as ATL;
+use crate::helpers::{debug, error, info};
 
-pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, ()> {
+use crate::{models::error::MsiError, AllowedToList as ATL};
+
+pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, MsiError> {
     info!("Reading MSI {}", input_file);
     let mut msi = match msi::open_rw(input_file) {
         Ok(msi) => msi,
-        Err(_) => return Err(()),
+        Err(e) => {
+            let msg = error!("Failed to open MSI");
+            return Err(MsiError::nested(msg, e));
+        }
     };
 
     match list_item {
@@ -20,24 +24,27 @@ pub(crate) fn list(input_file: String, list_item: ATL) -> Result<String, ()> {
     }
 }
 
-fn list_author(msi: Package<File>) -> Result<String, ()> {
+fn list_author(msi: Package<File>) -> Result<String, MsiError> {
     debug!("Listing author of MSI");
     let author = msi.summary_info().author().unwrap_or_default();
     Ok(author.to_owned())
 }
 
-fn list_tables(msi: Package<File>) -> Result<String, ()> {
+fn list_tables(msi: Package<File>) -> Result<String, MsiError> {
     debug!("Listing tables in MSI");
     let tables = msi.tables().map(|t| t.name()).collect::<Vec<&str>>();
     Ok(tables.join("\n"))
 }
 
 /// List the columns present in the given table
-fn list_table_columns(msi: Package<File>, table: String) -> Result<String, ()> {
+fn list_table_columns(msi: Package<File>, table: String) -> Result<String, MsiError> {
     debug!("Listing the columns of table {} in MSI", table);
-    let Some(table) = msi.get_table(&table) else {
-        error!("Table {} could not be found in MSI", table);
-        return Err(());
+    let table = match msi.get_table(&table) {
+        Some(table) => table,
+        None => {
+            let err = error!("Table {} could not be found in MSI", table);
+            return Err(MsiError::short(err));
+        }
     };
 
     let columns = table.columns();
@@ -67,14 +74,14 @@ fn list_table_columns(msi: Package<File>, table: String) -> Result<String, ()> {
 }
 
 /// List the contents of the given table
-fn list_table_contents(msi: &mut Package<File>, table_name: String) -> Result<String, ()> {
+fn list_table_contents(msi: &mut Package<File>, table_name: String) -> Result<String, MsiError> {
     debug!("Listing the contents of table {} in MSI", table_name);
 
     let rows = match msi.select_rows(Select::table(&table_name)) {
         Ok(rows) => rows,
-        Err(_) => {
-            error!("Failed to get rows from table {}", table_name);
-            return Err(());
+        Err(e) => {
+            let err = error!("Failed to get rows from table {}", table_name);
+            return Err(MsiError::nested(err, Box::new(e)));
         }
     };
 
