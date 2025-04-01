@@ -1,7 +1,11 @@
 mod builder;
 mod command_line;
 mod config;
+mod files;
 mod lister;
+mod models {
+    pub(crate) mod directory;
+}
 
 use std::process::ExitCode;
 

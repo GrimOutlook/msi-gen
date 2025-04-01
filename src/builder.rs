@@ -1,12 +1,16 @@
 use std::{
     fs::{read_to_string, File},
     io::{Cursor, Write},
+    rc::Rc,
 };
 
 use log::{error, info};
 use msi::{Package, PackageType};
 
-use crate::config::MsiConfig;
+use crate::{config::MsiConfig, files};
+
+// Make a shorthand way to refer to the package cursor for brevity.
+pub(crate) type Msi = Package<Cursor<Vec<u8>>>;
 
 pub(crate) fn build(config_path: &str, input_directory: &str, output_path: &str) -> Result<(), ()> {
     // Read the config from the passed in path
@@ -17,8 +21,8 @@ pub(crate) fn build(config_path: &str, input_directory: &str, output_path: &str)
             return Err(());
         }
     };
-    let c: MsiConfig = match toml::from_str(&raw_config) {
-        Ok(c) => c,
+    let config: Rc<MsiConfig> = match toml::from_str(&raw_config) {
+        Ok(c) => Rc::new(c),
         Err(_) => {
             error!("Failed to parse config toml {}", config_path);
             return Err(());
@@ -30,14 +34,21 @@ pub(crate) fn build(config_path: &str, input_directory: &str, output_path: &str)
     let mut package = Package::create(PackageType::Installer, cursor).unwrap();
 
     // Set the author
-    package
-        .summary_info_mut()
-        .set_author(c.summary_info.author.unwrap_or_default());
+    set_author(&mut package, config.clone());
+
+    // Add the files from the input directory
+    files::add_files(&mut package, config.clone(), input_directory)?;
 
     write_msi(package, output_path)
 }
 
-fn write_msi(package: Package<Cursor<Vec<u8>>>, output_path: &str) -> Result<(), ()> {
+fn set_author(package: &mut Msi, config: Rc<MsiConfig>) {
+    package
+        .summary_info_mut()
+        .set_author(config.summary_info.author.clone().unwrap_or_default());
+}
+
+fn write_msi(package: Msi, output_path: &str) -> Result<(), ()> {
     let cursor = package.into_inner().unwrap();
     let mut file = match File::create(output_path) {
         Ok(file) => file,

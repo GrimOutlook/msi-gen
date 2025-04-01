@@ -1,0 +1,15 @@
+[product_info]
+product_name = "MSIBuilder-Test"
+product_version = "1.2.3"
+manufacturer = "GrimOutlook"
+product_language = 1033
+product_code = "*"
+
+[summary_info]
+page_count = 200
+revision_number = "*"
+template = "x64;1033"
+author = "Dominic Grimaldi"
+
+[files]
+program_files = "files/pg_files/"

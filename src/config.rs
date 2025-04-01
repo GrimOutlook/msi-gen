@@ -5,8 +5,29 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub(crate) struct MsiConfig {
+    pub(crate) meta: Option<MetaProperties>,
     pub(crate) product_info: ProductInformationProperties,
     pub(crate) summary_info: SummaryInformationProperties,
+}
+
+/// # Meta Properties
+///
+/// These are properties that control how the MSI config is parsed.
+///
+/// ## Properties
+///
+/// - *explicit_paths* If true, the user needs to specify full paths for install
+///   folders. If false, several filepaths are autocompleted for brevity.
+///   Defaults to false if not specified.
+///     - Specifying `program_files` under the `files` header will autocomplete
+///       to `C:\Program Files\[Manufacturer]\[ProductName]\`.
+///     - Specifying `desktop` under the `files` header will autocomplete to
+///       `C:\Users\[Username]\[Desktop]\`.
+///
+#[derive(Deserialize)]
+#[serde(rename = "meta")]
+pub(crate) struct MetaProperties {
+    pub(crate) explicit_paths: Option<bool>,
 }
 
 /// # [Product Information Properties](https://learn.microsoft.com/en-us/windows/win32/msi/property-reference)

@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
+        "coltype",
         "flexi_logger",
+        "INSTALLDIR",
         "msitools",
-        "serde"
+        "serde",
+        "TARGETDIR"
     ]
 }

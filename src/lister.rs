@@ -1,8 +1,7 @@
-use std::{fs::File, rc::Rc};
-
 use cli_table::{Cell, CellStruct, Style, Table};
 use log::{debug, error, info};
-use msi::{Package, Select, Value};
+use msi::{Package, Select};
+use std::fs::File;
 
 use crate::AllowedToList as ATL;
 
@@ -33,20 +32,41 @@ fn list_tables(msi: Package<File>) -> Result<String, ()> {
     Ok(tables.join("\n"))
 }
 
+/// List the columns present in the given table
 fn list_table_columns(msi: Package<File>, table: String) -> Result<String, ()> {
     debug!("Listing the columns of table {} in MSI", table);
     let Some(table) = msi.get_table(&table) else {
         error!("Table {} could not be found in MSI", table);
         return Err(());
     };
-    let columns = table
-        .columns()
+
+    let columns = table.columns();
+
+    let contents: Vec<Vec<CellStruct>> = columns
         .iter()
-        .map(|c| c.name())
-        .collect::<Vec<&str>>();
-    Ok(columns.join("\n"))
+        .map(|c| {
+            vec![
+                c.name().cell(),
+                c.coltype().to_string().cell(),
+                format!("{:?}", c.category()).cell(),
+            ]
+        })
+        .collect();
+
+    let table_columns = ["Column", "Type", "Category"];
+
+    let print_table = contents
+        .table()
+        .title(table_columns.iter().map(|c| c.cell().bold(true)))
+        .bold(true);
+
+    Ok(print_table
+        .display()
+        .expect("Failed to display table")
+        .to_string())
 }
 
+/// List the contents of the given table
 fn list_table_contents(msi: &mut Package<File>, table_name: String) -> Result<String, ()> {
     debug!("Listing the contents of table {} in MSI", table_name);
 
