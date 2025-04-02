@@ -108,15 +108,8 @@ pub(crate) fn validate_paths(
     input_directory: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
-    let output_parent_dir = match output_path.canonicalize_utf8() {
-        // Since parent returns None when you are at the root folder it's find
-        // to use the full path if we hit None.
-        Ok(full_path) => {
-            let fp = full_path.clone();
-            let parent_opt = fp.parent();
-            let parent = parent_opt.unwrap_or(&full_path);
-            parent.clone()
-        }
+    let full_path = match output_path.canonicalize_utf8() {
+        Ok(full_path) => full_path,
         Err(e) => {
             let msg = error!(
                 "Failed to get full path for passed in output path [{}]",
@@ -125,6 +118,10 @@ pub(crate) fn validate_paths(
             return Err(MsiError::nested(msg, e));
         }
     };
+
+    // Since parent returns None when you are at the root folder it's find to
+    // use the full path if we hit None.
+    let output_parent_dir = full_path.as_path().parent().unwrap_or(&full_path);
 
     let err_msg = if !config_path.exists() {
         Some(error!("Config path {} does not exist", config_path))
