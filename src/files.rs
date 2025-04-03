@@ -77,53 +77,37 @@ fn add_default_directories(
         .as_ref()
         .expect("Failed to get `default_files` section from MsiConfig");
 
-    let (program_files_label, source_dir) = match &files_section.program_files {
-        Some(program_files) => (
-            "ProgramFiles64Folder".to_string(),
-            program_files.to_string(),
-        ),
-        None => (
-            "ProgramFilesFolder".to_string(),
-            files_section
-                .program_files_32
-                .as_ref()
-                // This check should already be handled by the `check_config`
-                // function in `builder.rs`
-                .expect("Parsed `[default_files]` section incorrectly causing an unexpected panic.")
-                .to_string(),
-        ),
-    };
-
-    let mut dirs = vec![
+    let mut default_dirs = vec![
         // The value of the DefaultDir column for the root directory entry must
         // be set to the SourceDir property per [this
-        // section](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table#root-source-directory)
+        // section](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table#root-source-directory).
+        // This will be present in every install with a files section.
         Directory {
             id: "TARGETDIR".to_string(),
             parent: None,
             name: "SourceDir".to_string(),
-        },
-        Directory {
-            id: program_files_label.clone(),
-            parent: Some("TARGETDIR".to_string()),
-            name: ".".to_string(),
-        },
-        Directory {
-            id: "ManufacturerFolder".to_string(),
-            parent: Some(program_files_label),
-            name: config.product_info.manufacturer.to_string(),
-        },
-        Directory {
-            id: "INSTALLDIR".to_string(),
-            parent: Some("ManufacturerFolder".to_string()),
-            name: config.product_info.product_name.to_string(),
+            source: None,
         },
     ];
 
-    let mut scanned_directories = scan_directories(config, input_directory)?;
-    dirs.append(&mut scanned_directories);
+    // Add the Program Files listing if it is included in the config.
+    if let Some(program_files) = &files_section.program_files {
+        default_dirs.append(&mut program_files_directory(
+            &config,
+            "ProgramFiles64Folder".to_string(),
+            input_directory.join(program_files),
+        ));
+    };
+    // Add the Program Files (x86) listing if it is included in the config.
+    if let Some(program_files_32) = &files_section.program_files_32 {
+        default_dirs.append(&mut program_files_directory(
+            &config,
+            "ProgramFilesFolder".to_string(),
+            input_directory.join(program_files_32),
+        ));
+    };
 
-    Ok(dirs)
+    Ok(default_dirs)
 }
 
 fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
@@ -144,6 +128,33 @@ fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
     }
 
     Ok(())
+}
+
+fn program_files_directory(
+    config: &Rc<MsiConfig>,
+    program_files_label: String,
+    source_dir: Utf8PathBuf,
+) -> Vec<Directory> {
+    vec![
+        Directory {
+            id: program_files_label.clone(),
+            parent: Some("TARGETDIR".to_string()),
+            name: ".".to_string(),
+            source: Some(source_dir),
+        },
+        Directory {
+            id: "ManufacturerFolder".to_string(),
+            parent: Some(program_files_label),
+            name: config.product_info.manufacturer.to_string(),
+            source: None,
+        },
+        Directory {
+            id: "INSTALLDIR".to_string(),
+            parent: Some("ManufacturerFolder".to_string()),
+            name: config.product_info.product_name.to_string(),
+            source: None,
+        },
+    ]
 }
 
 fn scan_directories(

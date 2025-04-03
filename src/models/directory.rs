@@ -1,3 +1,5 @@
+use camino::Utf8PathBuf;
+
 /// # [Directory](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table)
 ///
 /// This structure tracks directories that are created and interacted with by
@@ -12,4 +14,5 @@ pub(crate) struct Directory {
     pub(crate) id: String,
     pub(crate) parent: Option<String>,
     pub(crate) name: String,
+    pub(crate) source: Option<Utf8PathBuf>,
 }

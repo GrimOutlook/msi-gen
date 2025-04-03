@@ -13,6 +13,7 @@ author = "Dominic Grimaldi"
 
 [default_files]
 program_files = "files/pg_files/"
+program_files_32 = "files/pg_files/"
 vital = [
     "files/pg_files/TestFile.txt",
 ]
