@@ -26,10 +26,10 @@ impl MsiError {
 impl std::fmt::Display for MsiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let nested_error = match &self.nested_error {
-            Some(n) => format!("\nNested Error: {}", n.to_string()),
+            Some(n) => format!("\nNested Error: {}", n),
             None => "".to_owned(),
         };
-        let msg = format!("Error: {}{}", self.message, nested_error);
+        let msg = self.message.clone() + &nested_error;
         write!(f, "{}", msg)
     }
 }

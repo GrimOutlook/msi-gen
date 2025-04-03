@@ -12,7 +12,7 @@ template = "x64;1033"
 author = "Dominic Grimaldi"
 
 [default_files]
-program_files = "files/pg_files/"
+program_files = "pg_files/"
 vital = [
-    "files/pg_files/TestFile.txt",
+    "pg_files/TestFile.txt",
 ]

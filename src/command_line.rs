@@ -24,7 +24,7 @@ pub(crate) enum Commands {
         #[arg(short, long)]
         output_path: Utf8PathBuf,
     },
-    List {
+    Inspect {
         /// Path to MSI to read from
         #[arg(short, long)]
         input_file: Utf8PathBuf,

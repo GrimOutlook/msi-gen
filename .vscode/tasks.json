@@ -1,0 +1,11 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"runOptions": {},
+			"label": "Build Example1 MSI",
+			"type": "shell",
+			"command": "cargo run -- build --config ${config:config} --input-directory ${config:input} --output-path ${config:output} && cargo run -- inspect --input-file ${config:output} table-contents Directory"
+		}
+	],
+}

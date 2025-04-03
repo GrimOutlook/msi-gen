@@ -41,7 +41,7 @@ fn main() -> ExitCode {
             input_directory,
             output_path,
         } => builder::build(&config, &input_directory, &output_path),
-        Commands::List {
+        Commands::Inspect {
             input_file,
             list_args,
         } => match lister::list(&input_file, list_args) {
@@ -53,9 +53,12 @@ fn main() -> ExitCode {
         },
     };
 
-    let Ok(_ret) = ret else {
-        error!("MSI Builder operation failed");
-        return ExitCode::FAILURE;
+    match ret {
+        Ok(_) => (),
+        Err(e) => {
+            error!("MSI Builder operation failed. Error: {}", e);
+            return ExitCode::FAILURE;
+        }
     };
 
     info!("MSI Builder operation succeeded");

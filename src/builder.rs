@@ -108,19 +108,23 @@ pub(crate) fn validate_paths(
     input_directory: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
-    let full_path = match output_path.canonicalize_utf8() {
+    // Convert the string (representing the path to scan) into an absolute path.
+    let full_path = match camino::absolute_utf8(Utf8PathBuf::from(&output_path)) {
         Ok(full_path) => full_path,
         Err(e) => {
-            let msg = error!(
-                "Failed to get full path for passed in output path [{}]",
-                output_path
-            );
-            return Err(MsiError::nested(msg, e));
+            return Err(MsiError::nested(
+                format!(
+                    "Failed to get full path for the passed in output path [{}]",
+                    output_path
+                ),
+                e,
+            ))
         }
     };
 
-    // Since parent returns None when you are at the root folder it's find to
-    // use the full path if we hit None.
+    // Since parent returns None when you are at the root folder, it's fine to
+    // just use the full path if we hit None as this should just end up being
+    // `/` or `C:\` which would be valid.
     let output_parent_dir = full_path.as_path().parent().unwrap_or(&full_path);
 
     let err_msg = if !config_path.exists() {

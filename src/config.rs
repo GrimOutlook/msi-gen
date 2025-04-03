@@ -17,28 +17,27 @@ pub(crate) struct MsiConfig {
 ///
 /// ## Properties
 ///
-///  - [*`product_name`*](https://learn.microsoft.com/en-us/windows/win32/msi/productname)
-///     The name of the application to be installed.
+/// - [*`product_name`*](https://learn.microsoft.com/en-us/windows/win32/msi/productname)
+///   The name of the application to be installed.
 ///
 /// - [`product_version`](https://learn.microsoft.com/en-us/windows/win32/msi/productversion)
-///     The version of the application to be installed. The format is
-///     \[MAJOR].\[MINOR].\[BUILD]
+///   The version of the application to be installed. The format is
+///   \[MAJOR].\[MINOR].\[BUILD]
 ///
 /// - [`manufacturer`](https://learn.microsoft.com/en-us/windows/win32/msi/manufacturer)
-///     The name of the manufacturer for the application that is being
-///     installed.
+///   The name of the manufacturer for the application that is being installed.
 ///
 /// - [`product_language`](https://learn.microsoft.com/en-us/windows/win32/msi/productlanguage)
-///     Specifies the language the installer should use for any strings in the
-///     user interface that are not authored into the database. This property
-///     must be a numeric language identifier.
+///   Specifies the language the installer should use for any strings in the
+///   user interface that are not authored into the database. This property must
+///   be a numeric language identifier.
 ///     - TODO: Figure out where to find the official definitions of these for
 ///       users. I believe English is 1033.
 ///
 /// - [`product_code`](https://learn.microsoft.com/en-us/windows/win32/msi/productcode)
-///     A unique identifier for the particular product release, represented as a
-///     string GUID. This ID must vary for different versions and languages. Set
-///     this to `*` to have the program generate the GUID automatically.
+///   A unique identifier for the particular product release, represented as a
+///   string GUID. This ID must vary for different versions and languages. Set
+///   this to `*` to have the program generate the GUID automatically.
 ///
 #[derive(Deserialize)]
 #[serde(rename = "product_info")]
@@ -59,38 +58,38 @@ pub(crate) struct ProductInformationProperties {
 /// ### Required
 ///
 /// - [`page_count`](https://learn.microsoft.com/en-us/windows/win32/msi/page-count-summary)
-///     Contains the minimum installer version required by the installation
-///     package.
+///   Contains the minimum installer version required by the installation
+///   package.
 ///
 /// - [`revision_number`](https://learn.microsoft.com/en-us/windows/win32/msi/revision-number-summary)
-///     Contains the package code (GUID) for the installer package.
+///   Contains the package code (GUID) for the installer package.
 ///     - TODO: How does this relate to the product_code GUID?
 ///     - TODO: Can this be automatically generated? If it can add a note to
 ///       this comment section saying so.
 ///
 /// - [`template`](https://learn.microsoft.com/en-us/windows/win32/msi/template-summary)
-///     The platform and languages compatible with this installation package.
+///   The platform and languages compatible with this installation package.
 ///
 /// - [`word_count`](https://learn.microsoft.com/en-us/windows/win32/msi/word-count-summary)
-///     The type of the source file image.
+///   The type of the source file image.
 ///
 /// ### Optional
 ///
 /// - [`author`](https://learn.microsoft.com/en-us/windows/win32/msi/author-summary)
-///     The name of the author publishing the installation package, transform,
-///     or patch package.
+///   The name of the author publishing the installation package, transform,
+///   or patch package.
 ///
 /// - [`code_page`](https://learn.microsoft.com/en-us/windows/win32/msi/codepage-summary)
-///     The numeric value of the ANSI code page used for any strings that are
-///     stored in the summary information
+///   The numeric value of the ANSI code page used for any strings that are
+///   stored in the summary information
 ///
 /// - [`comments`](https://learn.microsoft.com/en-us/windows/win32/msi/comments-summary)
-///     Conveys the general purpose of the installation package, transform, or
-///     patch package.
+///   Conveys the general purpose of the installation package, transform, or
+///   patch package.
 ///
 /// - [`generating_application`](https://learn.microsoft.com/en-us/windows/win32/msi/creating-application-summary)
-///     Contains the name of the software used to author this MSI. If this is
-///     not set in the config, it is populated with "MSI Builder".
+///   Contains the name of the software used to author this MSI. If this is
+///   not set in the config, it is populated with "MSI Builder".
 ///
 #[derive(Deserialize)]
 #[serde(rename = "summary_info")]
