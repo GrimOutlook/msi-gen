@@ -10,3 +10,18 @@ such as CustomActions.
 
 - [MSI Reference
   Material](https://learn.microsoft.com/en-us/windows/win32/msi/specifying-directory-structure)
+
+## CI/CD Desires
+
+- [Fuzzing?](https://github.com/rust-fuzz/afl.rs)
+- [cargo-bloat](https://github.com/RazrFalcon/cargo-bloat)
+- [cargo-audit](https://rustsec.org/)
+- [cargo-auditable](https://github.com/rust-secure-code/cargo-auditable)
+- [cargo-deny](https://embarkstudios.github.io/cargo-deny/)
+- [cargo-udeps](https://github.com/est31/cargo-udeps)
+- [cargo-semver-checks](https://crates.io/crates/cargo-semver-checks)
+- [cargo-spellcheck](https://github.com/drahnr/cargo-spellcheck)
+- [cargo-unused-features](https://github.com/TimonPost/cargo-unused-features)
+- [kani](https://github.com/model-checking/kani)
+- [lockbud](https://github.com/BurtonQin/lockbud)
+- [mirai](https://github.com/endorlabs/MIRAI)
