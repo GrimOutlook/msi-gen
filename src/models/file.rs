@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+use flexstr::LocalStr;
 use getset::Getters;
 use uuid::Uuid;
 
@@ -27,10 +28,10 @@ use uuid::Uuid;
 #[derive(Clone, Getters)]
 #[getset(get = "pub")]
 pub(crate) struct File {
-    component_id: String,
-    file_id: String,
+    component_id: LocalStr,
+    file_id: LocalStr,
     source: Utf8PathBuf,
-    name: String,
+    name: LocalStr,
     size: u64,
     vital: bool,
     version: Option<String>,
@@ -41,10 +42,10 @@ pub(crate) struct File {
 impl File {
     pub fn new(source: &Utf8PathBuf, sequence_number: u64, size: u64) -> File {
         File {
-            component_id: Uuid::new_v4().to_string(),
-            file_id: Uuid::new_v4().to_string(),
+            component_id: Uuid::new_v4().to_string().into(),
+            file_id: Uuid::new_v4().to_string().into(),
             source: source.into(),
-            name: source.to_string(),
+            name: source.to_string().into(),
             size,
             vital: false,
             version: None,

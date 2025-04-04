@@ -1,5 +1,6 @@
 use camino::Utf8PathBuf;
 use clap::{arg, Parser, Subcommand};
+use flexstr::SharedStr;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -42,7 +43,7 @@ pub(crate) enum AllowedToList {
     // List tables present in the MSI
     Tables,
     // List the columns that a given table has.
-    TableColumns { table: String },
+    TableColumns { table: SharedStr },
     // List the contents of a given table
-    TableContents { table: String },
+    TableContents { table: SharedStr },
 }

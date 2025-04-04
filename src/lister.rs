@@ -1,5 +1,6 @@
 use camino::Utf8PathBuf;
 use cli_table::{Cell, CellStruct, Style, Table};
+use flexstr::{LocalStr, SharedStr};
 use msi::{Package, Select};
 use std::fs::File;
 
@@ -55,7 +56,7 @@ fn list_tables(msi: Package<File>) -> Result<String, MsiError> {
 }
 
 /// List the columns present in the given table
-fn list_table_columns(msi: Package<File>, table: String) -> Result<String, MsiError> {
+fn list_table_columns(msi: Package<File>, table: SharedStr) -> Result<String, MsiError> {
     debug!("Listing the columns of table {} in MSI", table);
     let table = match msi.get_table(&table) {
         Some(table) => table,
@@ -92,10 +93,10 @@ fn list_table_columns(msi: Package<File>, table: String) -> Result<String, MsiEr
 }
 
 /// List the contents of the given table
-fn list_table_contents(msi: &mut Package<File>, table_name: String) -> Result<String, MsiError> {
+fn list_table_contents(msi: &mut Package<File>, table_name: SharedStr) -> Result<String, MsiError> {
     debug!("Listing the contents of table {} in MSI", table_name);
 
-    let rows = match msi.select_rows(Select::table(&table_name)) {
+    let rows = match msi.select_rows(Select::table(table_name.to_string())) {
         Ok(rows) => rows,
         Err(e) => {
             let err = error!("Failed to get rows from table {}", table_name);

@@ -1,6 +1,7 @@
 use std::{os::unix::fs::MetadataExt, rc::Rc};
 
 use camino::Utf8PathBuf;
+use flexstr::{local_str, LocalStr};
 use itertools::{Either, Itertools};
 use msi::{Category, Column, Insert, Value};
 use uuid::Uuid;
@@ -9,15 +10,15 @@ use crate::{
     builder::Msi,
     config::MsiConfig,
     error,
-    helpers::warns,
+    helpers::{debug, warns},
     models::{directory::Directory, error::MsiError, file::File, sequencer::Sequencer},
 };
 
-const DOT: &str = ".";
-const SOURCEDIR: &str = "SourceDir";
-const TARGETDIR: &str = "TARGETDIR";
-const PROGRAMFILESFOLDER: &str = "ProgramFilesFolder";
-const PROGRAMFILES64FOLDER: &str = "ProgramFiles64Folder";
+const DOT: LocalStr = local_str!(".");
+const SOURCEDIR: LocalStr = local_str!("SourceDir");
+const TARGETDIR: LocalStr = local_str!("TARGETDIR");
+const PROGRAMFILESFOLDER: LocalStr = local_str!("ProgramFilesFolder");
+const PROGRAMFILES64FOLDER: LocalStr = local_str!("ProgramFiles64Folder");
 
 pub(crate) fn add_paths(
     package: &mut Msi,
@@ -33,12 +34,12 @@ pub(crate) fn add_paths(
             .iter()
             .map(|dir| {
                 vec![
-                    Value::from(dir.id().clone()),
+                    Value::from(dir.id().to_string()),
                     match &dir.parent_id() {
                         Some(p) => Value::from(p.to_string()),
                         None => Value::Null,
                     },
-                    Value::from(dir.name().clone()),
+                    Value::from(dir.name().to_string()),
                 ]
             })
             .collect(),
@@ -96,6 +97,10 @@ fn add_default_directories(
     input_directory: &Utf8PathBuf,
     file_sequencer: &mut Sequencer,
 ) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    debug!(
+        "Adding default directories for input path [{}]",
+        input_directory
+    );
     let files_section = config
         .default_files
         .as_ref()
@@ -127,12 +132,12 @@ fn add_default_directories(
         ));
     };
 
-    // // Add the Desktop listing if it is included in the config.
+    // Add the Desktop listing if it is included in the config.
     if let Some(desktop) = &files_section.desktop {
         default_directories.push(Directory::new(
             "DesktopFolder".to_string(),
             Some(TARGETDIR),
-            ".".to_string(),
+            DOT,
             Some(input_directory.join(desktop)),
         ));
     };
@@ -174,28 +179,22 @@ fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
 
 fn program_files_directory(
     config: &Rc<MsiConfig>,
-    program_files_label: &str,
+    program_files_label: LocalStr,
     source_dir: Utf8PathBuf,
 ) -> Vec<Directory> {
     let program_folder_uuid = Uuid::new_v4().to_string();
     let manufacturer_folder_uuid = Uuid::new_v4().to_string();
     vec![
-        Directory::new(
-            program_files_label.clone(),
-            // TODO: Make this not required a to_string(). It's ugly.
-            Some(TARGETDIR.to_string()),
-            DOT,
-            None,
-        ),
+        Directory::new(program_files_label.clone(), Some(TARGETDIR), DOT, None),
         Directory::new(
             manufacturer_folder_uuid.clone(),
-            Some(program_files_label.to_string()),
+            Some(program_files_label),
             config.product_info.manufacturer.to_string(),
             None,
         ),
         Directory::new(
             program_folder_uuid,
-            Some(manufacturer_folder_uuid),
+            Some(manufacturer_folder_uuid.into()),
             config.product_info.product_name.to_string(),
             Some(source_dir),
         ),
@@ -207,6 +206,7 @@ fn scan_path(
     sequencer: &mut Sequencer,
     parent_directory_id: &str,
 ) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    debug!("Scanning directory path [{}]", scan_target);
     // Get the entries present in the `scan_target` directory.
     let directory_entries = match scan_target.read_dir_utf8() {
         Ok(dir) => dir,
@@ -259,7 +259,7 @@ fn scan_path(
     // don't think about it, it's fine.
     if let Some(err) = errs.first() {
         return Err(MsiError::nested(
-            error!("Failed to read file inside {}", scan_target),
+            error!("Failed to read file type from file inside {}", scan_target),
             std::io::Error::new(err.kind(), err.to_string()),
         ));
     }

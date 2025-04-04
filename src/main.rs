@@ -1,7 +1,7 @@
 mod builder;
 mod command_line;
 mod config;
-mod files;
+mod scan;
 mod helpers;
 mod lister;
 mod models {

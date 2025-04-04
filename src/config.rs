@@ -1,6 +1,7 @@
 // TODO: Remove this when the library is done
 #![allow(dead_code)]
 
+use flexstr::LocalStr;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -42,11 +43,11 @@ pub(crate) struct MsiConfig {
 #[derive(Deserialize)]
 #[serde(rename = "product_info")]
 pub(crate) struct ProductInformationProperties {
-    pub(crate) product_name: String,
-    pub(crate) product_version: String,
-    pub(crate) manufacturer: String,
+    pub(crate) product_name: LocalStr,
+    pub(crate) product_version: LocalStr,
+    pub(crate) manufacturer: LocalStr,
     pub(crate) product_language: u16,
-    pub(crate) product_code: String,
+    pub(crate) product_code: LocalStr,
 }
 
 /// # [Summary Information Properties](https://learn.microsoft.com/en-us/windows/win32/msi/summary-property-descriptions)
@@ -76,8 +77,8 @@ pub(crate) struct ProductInformationProperties {
 /// ### Optional
 ///
 /// - [`author`](https://learn.microsoft.com/en-us/windows/win32/msi/author-summary)
-///   The name of the author publishing the installation package, transform,
-///   or patch package.
+///   The name of the author publishing the installation package, transform, or
+///   patch package.
 ///
 /// - [`code_page`](https://learn.microsoft.com/en-us/windows/win32/msi/codepage-summary)
 ///   The numeric value of the ANSI code page used for any strings that are
@@ -88,16 +89,16 @@ pub(crate) struct ProductInformationProperties {
 ///   patch package.
 ///
 /// - [`generating_application`](https://learn.microsoft.com/en-us/windows/win32/msi/creating-application-summary)
-///   Contains the name of the software used to author this MSI. If this is
-///   not set in the config, it is populated with "MSI Builder".
+///   Contains the name of the software used to author this MSI. If this is not
+///   set in the config, it is populated with "MSI Builder".
 ///
 #[derive(Deserialize)]
 #[serde(rename = "summary_info")]
 pub(crate) struct SummaryInformationProperties {
     // Required
     pub(crate) page_count: u16,
-    pub(crate) revision_number: String,
-    pub(crate) template: String,
+    pub(crate) revision_number: LocalStr,
+    pub(crate) template: LocalStr,
     // Optional in config, required by MSI.
     pub(crate) word_count: Option<u16>,
     // Optional

@@ -1,5 +1,6 @@
 use camino::Utf8PathBuf;
 use derive_new::new;
+use flexstr::LocalStr;
 use getset::Getters;
 use uuid::Uuid;
 
@@ -24,22 +25,23 @@ use uuid::Uuid;
 #[getset(get = "pub")]
 pub(crate) struct Directory {
     #[new(into)]
-    id: String,
-    parent_id: Option<String>,
+    id: LocalStr,
     #[new(into)]
-    name: String,
+    parent_id: Option<LocalStr>,
+    #[new(into)]
+    name: LocalStr,
     source: Option<Utf8PathBuf>,
 }
 
 impl Directory {
     pub fn from_path(source: &Utf8PathBuf, parent_id: &str) -> Self {
         Directory {
-            id: Uuid::new_v4().to_string(),
-            parent_id: Some(parent_id.to_string()),
+            id: Uuid::new_v4().to_string().into(),
+            parent_id: Some(parent_id.into()),
             name: source
                 .file_name()
                 .expect("Filename somehow ends with '..'. Ending in pure confusion.")
-                .to_string(),
+                .into(),
             source: Some(source.clone()),
         }
     }

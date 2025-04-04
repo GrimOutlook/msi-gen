@@ -7,7 +7,7 @@ use std::{
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{config::MsiConfig, files, models::error::MsiError};
+use crate::{config::MsiConfig, scan, models::error::MsiError};
 use crate::{helpers::error, info};
 
 // Make a shorthand way to refer to the package cursor for brevity.
@@ -48,7 +48,7 @@ pub(crate) fn build(
     set_author(&mut package, config.clone());
 
     // Add the files from the input directory
-    files::add_paths(&mut package, config.clone(), input_directory)?;
+    scan::add_paths(&mut package, config.clone(), input_directory)?;
 
     write_msi(package, output_path)
 }
