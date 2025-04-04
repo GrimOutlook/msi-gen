@@ -9,8 +9,15 @@ use crate::{
     builder::Msi,
     config::MsiConfig,
     error,
+    helpers::warns,
     models::{directory::Directory, error::MsiError, file::File, sequencer::Sequencer},
 };
+
+const DOT: &str = ".";
+const SOURCEDIR: &str = "SourceDir";
+const TARGETDIR: &str = "TARGETDIR";
+const PROGRAMFILESFOLDER: &str = "ProgramFilesFolder";
+const PROGRAMFILES64FOLDER: &str = "ProgramFiles64Folder";
 
 pub(crate) fn add_paths(
     package: &mut Msi,
@@ -26,12 +33,12 @@ pub(crate) fn add_paths(
             .iter()
             .map(|dir| {
                 vec![
-                    Value::from(dir.id.clone()),
-                    match &dir.parent {
+                    Value::from(dir.id().clone()),
+                    match &dir.parent_id() {
                         Some(p) => Value::from(p.to_string()),
                         None => Value::Null,
                     },
-                    Value::from(dir.name.clone()),
+                    Value::from(dir.name().clone()),
                 ]
             })
             .collect(),
@@ -55,20 +62,21 @@ fn scan_paths(
     let mut files = Vec::new();
 
     if config.explicit_files.is_some() {
-        let explicit_dirs = &mut add_explicit_path_directories(config.clone(), input_directory)?;
-        directories.append(explicit_dirs);
+        let (scanned_dirs, scanned_files) = &mut add_explicit_path_directories(
+            config.clone(),
+            input_directory,
+            &mut file_sequencer,
+        )?;
+        directories.append(scanned_dirs);
+        files.append(scanned_files);
     }
 
     if config.default_files.is_some() {
-        let default_dirs = &mut add_default_directories(config, input_directory)?;
-        directories.append(default_dirs);
+        let (scanned_dirs, scanned_files) =
+            &mut add_default_directories(config, input_directory, &mut file_sequencer)?;
+        directories.append(scanned_dirs);
+        files.append(scanned_files);
     }
-
-    let (scanned_dirs, scanned_files) =
-        &mut scan_path(&Utf8PathBuf::from(input_directory), &mut file_sequencer)?;
-
-    directories.append(scanned_dirs);
-    files.append(scanned_files);
 
     Ok((directories, files))
 }
@@ -76,7 +84,9 @@ fn scan_paths(
 fn add_explicit_path_directories(
     _config: Rc<MsiConfig>,
     _input_directory: &Utf8PathBuf,
-) -> Result<Vec<Directory>, MsiError> {
+    _file_sequencer: &mut Sequencer,
+) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    warns!("Sorry! Explicit paths are currently not implemented.");
     // TODO: Finish implementing explicit path directories.
     todo!("Explicit paths are currently not supported.");
 }
@@ -84,53 +94,62 @@ fn add_explicit_path_directories(
 fn add_default_directories(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
-) -> Result<Vec<Directory>, MsiError> {
+    file_sequencer: &mut Sequencer,
+) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
     let files_section = config
         .default_files
         .as_ref()
         .expect("Failed to get `default_files` section from MsiConfig");
 
-    let mut directories = vec![
+    let mut default_directories = vec![
         // The value of the DefaultDir column for the root directory entry must
         // be set to the SourceDir property per [this
         // section](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table#root-source-directory).
         // This will be present in every install with a files section.
-        Directory {
-            id: "TARGETDIR".to_string(),
-            parent: None,
-            name: "SourceDir".to_string(),
-            source: None,
-        },
+        Directory::new(TARGETDIR, None, SOURCEDIR, None),
     ];
 
     // Add the Program Files listing if it is included in the config.
     if let Some(program_files) = &files_section.program_files {
-        directories.append(&mut program_files_directory(
+        default_directories.append(&mut program_files_directory(
             &config,
-            "ProgramFiles64Folder".to_string(),
+            PROGRAMFILES64FOLDER,
             input_directory.join(program_files),
         ));
     };
 
     // Add the Program Files (x86) listing if it is included in the config.
     if let Some(program_files_32) = &files_section.program_files_32 {
-        directories.append(&mut program_files_directory(
+        default_directories.append(&mut program_files_directory(
             &config,
-            "ProgramFilesFolder".to_string(),
+            PROGRAMFILESFOLDER,
             input_directory.join(program_files_32),
         ));
     };
 
-    // Add the Desktop listing if it is included in the config.
+    // // Add the Desktop listing if it is included in the config.
     if let Some(desktop) = &files_section.desktop {
-        directories.append(&mut program_files_directory(
-            &config,
+        default_directories.push(Directory::new(
             "DesktopFolder".to_string(),
-            input_directory.join(desktop),
+            Some(TARGETDIR),
+            ".".to_string(),
+            Some(input_directory.join(desktop)),
         ));
     };
 
-    Ok(directories)
+    let mut directories = Vec::new();
+    let mut files = Vec::new();
+    for directory in default_directories
+        .iter()
+        .filter_map(|d| d.source().clone())
+    {
+        // Scan the current path and append
+        let (scanned_dirs, scanned_files) = &mut scan_path(&directory, file_sequencer, "")?;
+        directories.append(scanned_dirs);
+        files.append(scanned_files);
+    }
+
+    Ok((directories, files))
 }
 
 fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
@@ -155,36 +174,38 @@ fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
 
 fn program_files_directory(
     config: &Rc<MsiConfig>,
-    program_files_label: String,
+    program_files_label: &str,
     source_dir: Utf8PathBuf,
 ) -> Vec<Directory> {
     let program_folder_uuid = Uuid::new_v4().to_string();
     let manufacturer_folder_uuid = Uuid::new_v4().to_string();
     vec![
-        Directory {
-            id: program_files_label.clone(),
-            parent: Some("TARGETDIR".to_string()),
-            name: ".".to_string(),
-            source: None,
-        },
-        Directory {
-            id: manufacturer_folder_uuid.clone(),
-            parent: Some(program_files_label),
-            name: config.product_info.manufacturer.to_string(),
-            source: None,
-        },
-        Directory {
-            id: program_folder_uuid,
-            parent: Some(manufacturer_folder_uuid),
-            name: config.product_info.product_name.to_string(),
-            source: Some(source_dir),
-        },
+        Directory::new(
+            program_files_label.clone(),
+            // TODO: Make this not required a to_string(). It's ugly.
+            Some(TARGETDIR.to_string()),
+            DOT,
+            None,
+        ),
+        Directory::new(
+            manufacturer_folder_uuid.clone(),
+            Some(program_files_label.to_string()),
+            config.product_info.manufacturer.to_string(),
+            None,
+        ),
+        Directory::new(
+            program_folder_uuid,
+            Some(manufacturer_folder_uuid),
+            config.product_info.product_name.to_string(),
+            Some(source_dir),
+        ),
     ]
 }
 
 fn scan_path(
     scan_target: &Utf8PathBuf,
     sequencer: &mut Sequencer,
+    parent_directory_id: &str,
 ) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
     // Get the entries present in the `scan_target` directory.
     let directory_entries = match scan_target.read_dir_utf8() {
@@ -259,6 +280,21 @@ fn scan_path(
             }
         });
 
+    // Convert all of the found directories found in the scan_path directory to
+    // Directory objects. We need to generate a UUID for them and have those
+    // available to pass into the recursive `scan_path` call so they know what
+    // parent directory they are related to
+    //
+    // We only have to do this because we return Directory objects instead of
+    // just PathBuf objects. TODO: Look into only returning PathBuf objects and
+    // converting them outside of this function. I'm hesitant this will be much
+    // cleaner because I feel like I'll just have to remake the structure
+    // already present here but required more thought.
+    let found_directories = found_dir_paths
+        .iter()
+        .map(|source| Directory::from_path(source, parent_directory_id))
+        .collect_vec();
+
     // Recursively scan all of the directories that were found in the
     // `scan_target` directory and return all of the files and directories that
     // were found.
@@ -269,9 +305,9 @@ fn scan_path(
     // which is behind a shared reference`.
     let (mut subdirs, mut subdir_files): (Vec<Directory>, Vec<File>) =
         (Default::default(), Default::default());
-    for paths in found_dir_paths
+    for paths in found_directories
         .iter()
-        .map(|d| scan_path(&Utf8PathBuf::from(d), sequencer))
+        .map(|dir| scan_path(&dir.source().as_ref().unwrap(), sequencer, dir.id()))
     {
         match paths {
             Ok(paths) => {
@@ -283,8 +319,6 @@ fn scan_path(
             Err(err) => return Err(err),
         }
     }
-
-    subdirs.append(&mut found_dir_paths.iter().map_into().collect_vec());
 
     for file_path in found_file_paths {
         let size = match file_path.metadata() {

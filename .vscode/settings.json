@@ -3,11 +3,13 @@
         "camino",
         "coltype",
         "flexi_logger",
+        "getset",
         "INSTALLDIR",
         "Itertools",
         "msitools",
         "PathBufs",
         "serde",
+        "SOURCEDIR",
         "subdirs",
         "TARGETDIR"
     ],

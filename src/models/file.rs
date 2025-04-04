@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+use getset::Getters;
 use uuid::Uuid;
 
 /// # [File](https://learn.microsoft.com/en-us/windows/win32/msi/file-table)
@@ -23,25 +24,27 @@ use uuid::Uuid;
 /// - `sequence` Sequence position of this file on the media images. This order
 ///   must correspond to the order of the files in the cabinet if the files are
 ///   compressed. The integers in this field must be equal or greater than 1.
+#[derive(Clone, Getters)]
+#[getset(get = "pub")]
 pub(crate) struct File {
     component_id: String,
     file_id: String,
     source: Utf8PathBuf,
-    pub(crate) name: String,
-    pub(crate) size: u64,
-    pub(crate) vital: bool,
-    pub(crate) version: Option<String>,
-    pub(crate) language: Option<String>,
-    pub(crate) sequence: u64,
+    name: String,
+    size: u64,
+    vital: bool,
+    version: Option<String>,
+    language: Option<String>,
+    sequence: u64,
 }
 
 impl File {
-    pub fn new(value: &Utf8PathBuf, sequence_number: u64, size: u64) -> File {
+    pub fn new(source: &Utf8PathBuf, sequence_number: u64, size: u64) -> File {
         File {
             component_id: Uuid::new_v4().to_string(),
             file_id: Uuid::new_v4().to_string(),
-            source: value.into(),
-            name: value.to_string(),
+            source: source.into(),
+            name: source.to_string(),
             size,
             vital: false,
             version: None,

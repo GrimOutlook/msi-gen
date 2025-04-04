@@ -25,7 +25,7 @@ pub(crate) use error;
 
 #[clippy::format_args]
 macro_rules! warns {
-    ($($arg:tt)+) => (crate::helpers::format_and_log!(log::Level::Warning, $($arg)+))
+    ($($arg:tt)+) => (crate::helpers::format_and_log!(log::Level::Warn, $($arg)+))
 }
 pub(crate) use warns;
 
