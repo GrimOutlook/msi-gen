@@ -48,7 +48,7 @@ pub(crate) fn build(
     set_author(&mut package, config.clone());
 
     // Add the files from the input directory
-    files::add_files(&mut package, config.clone(), input_directory)?;
+    files::add_paths(&mut package, config.clone(), input_directory)?;
 
     write_msi(package, output_path)
 }

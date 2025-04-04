@@ -1,31 +1,34 @@
+type Inner = Box<dyn std::error::Error>;
+
 #[derive(Debug)]
 pub(crate) struct MsiError {
     message: String,
-    nested_error: Option<Box<dyn std::error::Error + 'static>>,
+    inner: Option<Inner>,
 }
 
 impl MsiError {
     pub fn short(message: impl ToString) -> MsiError {
         MsiError {
             message: message.to_string(),
-            nested_error: None,
+            inner: None,
         }
     }
 
-    pub fn nested(
-        message: impl ToString,
-        nested_error: impl Into<Box<dyn std::error::Error + 'static>>,
-    ) -> MsiError {
+    pub fn nested(message: impl ToString, inner: impl Into<Inner>) -> MsiError {
         MsiError {
             message: message.to_string(),
-            nested_error: Some(nested_error.into()),
+            inner: Some(inner.into()),
         }
+    }
+
+    pub fn inner(&self) -> &Option<Inner> {
+        &self.inner
     }
 }
 
 impl std::fmt::Display for MsiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let nested_error = match &self.nested_error {
+        let nested_error = match &self.inner {
             Some(n) => format!("\nNested Error: {}", n),
             None => "".to_owned(),
         };

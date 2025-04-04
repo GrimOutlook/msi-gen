@@ -1,4 +1,4 @@
-use std::{fs::FileType, rc::Rc};
+use std::rc::Rc;
 
 use camino::Utf8PathBuf;
 use itertools::{Either, Itertools};
@@ -8,15 +8,15 @@ use crate::{
     builder::Msi,
     config::MsiConfig,
     error,
-    models::{directory::Directory, error::MsiError},
+    models::{directory::Directory, error::MsiError, file::File},
 };
 
-pub(crate) fn add_files(
+pub(crate) fn add_paths(
     package: &mut Msi,
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
-    let directories = add_directories(config, input_directory)?;
+    let (directories, fields) = scan_paths(config, input_directory)?;
 
     create_directory_table(package)?;
 
@@ -43,22 +43,29 @@ pub(crate) fn add_files(
     Ok(())
 }
 
-fn add_directories(
+fn scan_paths(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
-) -> Result<Vec<Directory>, MsiError> {
+) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
     let mut directories = Vec::new();
+    let mut files = Vec::new();
+
     if config.explicit_files.is_some() {
-        directories.append(&mut add_explicit_path_directories(
-            config.clone(),
-            input_directory,
-        )?);
-    }
-    if config.default_files.is_some() {
-        directories.append(&mut add_default_directories(config, input_directory)?);
+        let explicit_dirs = &mut add_explicit_path_directories(config.clone(), input_directory)?;
+        directories.append(explicit_dirs);
     }
 
-    Ok(directories)
+    if config.default_files.is_some() {
+        let default_dirs = &mut add_default_directories(config, input_directory)?;
+        directories.append(default_dirs);
+    }
+
+    let (scanned_dirs, scanned_files) = &mut scan_path(&Utf8PathBuf::from(input_directory))?;
+
+    directories.append(scanned_dirs);
+    files.append(scanned_files);
+
+    Ok((directories, files))
 }
 
 fn add_explicit_path_directories(
@@ -78,7 +85,7 @@ fn add_default_directories(
         .as_ref()
         .expect("Failed to get `default_files` section from MsiConfig");
 
-    let mut default_dirs = vec![
+    let mut directories = vec![
         // The value of the DefaultDir column for the root directory entry must
         // be set to the SourceDir property per [this
         // section](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table#root-source-directory).
@@ -93,7 +100,7 @@ fn add_default_directories(
 
     // Add the Program Files listing if it is included in the config.
     if let Some(program_files) = &files_section.program_files {
-        default_dirs.append(&mut program_files_directory(
+        directories.append(&mut program_files_directory(
             &config,
             "ProgramFiles64Folder".to_string(),
             input_directory.join(program_files),
@@ -101,14 +108,23 @@ fn add_default_directories(
     };
     // Add the Program Files (x86) listing if it is included in the config.
     if let Some(program_files_32) = &files_section.program_files_32 {
-        default_dirs.append(&mut program_files_directory(
+        directories.append(&mut program_files_directory(
             &config,
             "ProgramFilesFolder".to_string(),
             input_directory.join(program_files_32),
         ));
     };
 
-    Ok(default_dirs)
+    // Add the Desktop listing if it is included in the config.
+    if let Some(desktop) = &files_section.desktop {
+        directories.append(&mut program_files_directory(
+            &config,
+            "DesktopFolder".to_string(),
+            input_directory.join(desktop),
+        ));
+    };
+
+    Ok(directories)
 }
 
 fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
@@ -158,12 +174,9 @@ fn program_files_directory(
     ]
 }
 
-fn scan_directories(
-    config: &Rc<MsiConfig>,
-    scan_target: &Utf8PathBuf,
-) -> Result<Vec<Directory>, MsiError> {
-    // Get the listings present in the `scan_target` directory.
-    let directory_listings = match scan_target.read_dir_utf8() {
+fn scan_path(scan_target: &Utf8PathBuf) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    // Get the entries present in the `scan_target` directory.
+    let directory_entries = match scan_target.read_dir_utf8() {
         Ok(dir) => dir,
         Err(e) => {
             return Err(MsiError::nested(
@@ -173,8 +186,8 @@ fn scan_directories(
         }
     };
 
-    // Get all of the listings that did not return an `Err` when scanned.
-    let (ok_listings, errs): (Vec<_>, Vec<_>) = directory_listings.partition_result();
+    // Get all of the entries that did not return an `Err` when scanned.
+    let (ok_entries, errs): (Vec<_>, Vec<_>) = directory_entries.partition_result();
     // If any of them returned an error, short circuit and return that error.
     // May change this behavior based on config if desired in the future.
     if let Some(err) = errs.first() {
@@ -195,16 +208,16 @@ fn scan_directories(
         ));
     }
 
-    // Get all of the listings that have a valid file type. We need to check if
+    // Get all of the entries that have a valid file type. We need to check if
     // these are directories so if we can't read that from somewhere we need to
     // exit.
     //
     // Also I shamelessly stole the [implementation] for
     // [`partition_result`](https://docs.rs/itertools/0.14.0/src/itertools/lib.rs.html#3669-3679)
-    // in itertools to make this because I needed the listings back out, not the
+    // in itertools to make this because I needed the entries back out, not the
     // filetypes that have to be checked.
-    let (ok_type_listings, errs): (Vec<_>, Vec<_>) =
-        ok_listings.iter().partition_map(|d| match d.file_type() {
+    let (ok_type_entries, errs): (Vec<_>, Vec<_>) =
+        ok_entries.iter().partition_map(|d| match d.file_type() {
             Ok(filetype) => Either::Left((d, filetype)),
             Err(e) => Either::Right(e),
         });
@@ -219,18 +232,49 @@ fn scan_directories(
         ));
     }
 
-    // Convert all of the listings that are directories into PathBufs for later
+    // Convert all of the entries that are directories into PathBufs for later
     // use.
-    let ok_dirs: Vec<_> = ok_type_listings
-        .iter()
-        .filter(|&(_listing, filetype)| filetype.is_dir())
-        .map(|(listing, _filetype)| listing.path())
-        .collect();
+    let (mut found_dir_paths, mut found_file_paths): (Vec<_>, Vec<_>) = ok_type_entries
+        .into_iter()
+        // Only keep the entries that are either directories or files. We don't
+        // care about symlinks or other file types.
+        .filter(|(_entry, filetype)| filetype.is_dir() || filetype.is_file())
+        .map(|(entry, filetype)| (entry.path(), filetype))
+        .partition_map(|(entry, filetype)| {
+            if filetype.is_dir() {
+                Either::Left(entry.to_path_buf())
+            } else {
+                Either::Right(entry.to_path_buf())
+            }
+        });
 
-    let (ok_subdirs, errs): (Vec<_>, Vec<_>) = ok_dirs
+    // Recursively scan all of the directories that were found in the
+    // `scan_target` directory and return all of the files and directories that
+    // were found.
+    //
+    // There has to be a better way than making `errs` mutable and popping it
+    // out but if I try to do `errs.first()`but that returns a reference and I
+    // couldn't figure out how to get around the `cannot move out of `*err`
+    // which is behind a shared reference`.
+    let (mut subdirs, mut subdir_files): (Vec<Directory>, Vec<File>) =
+        (Default::default(), Default::default());
+    for paths in found_dir_paths
         .iter()
-        .map(|d| scan_directories(config, &Utf8PathBuf::from(d)))
-        .partition_result();
+        .map(|d| scan_path(&Utf8PathBuf::from(d)))
+    {
+        match paths {
+            Ok(paths) => {
+                let (mut found_dirs, mut found_files) = paths;
+                subdirs.append(&mut found_dirs);
+                subdir_files.append(&mut found_files);
+            }
+            // Short circuit if any errors were hit during the recursive scan.
+            Err(err) => return Err(err),
+        }
+    }
 
-    todo!("Finish")
+    subdirs.append(&mut found_dir_paths.iter().map_into().collect_vec());
+    subdir_files.append(&mut found_file_paths.iter().map_into().collect_vec());
+
+    Ok((subdirs, subdir_files))
 }

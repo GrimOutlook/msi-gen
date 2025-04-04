@@ -1,3 +1,5 @@
+use camino::Utf8PathBuf;
+
 /// # [File](https://learn.microsoft.com/en-us/windows/win32/msi/file-table)
 ///
 /// Represents a file that is to be copied from the MSI to the target system.
@@ -23,10 +25,16 @@
 pub(crate) struct File {
     component_id: String,
     file_id: String,
-    source: String,
+    source: Utf8PathBuf,
     pub(crate) name: String,
     pub(crate) vital: bool,
     pub(crate) version: Option<String>,
     pub(crate) language: Option<String>,
     pub(crate) sequence: usize,
+}
+
+impl From<&Utf8PathBuf> for File {
+    fn from(value: &Utf8PathBuf) -> Self {
+        todo!("Implement conversion from path buf to file")
+    }
 }
