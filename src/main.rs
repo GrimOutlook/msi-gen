@@ -8,6 +8,7 @@ mod models {
     pub(crate) mod directory;
     pub mod error;
     pub(crate) mod file;
+    pub mod sequencer;
 }
 
 use std::process::ExitCode;

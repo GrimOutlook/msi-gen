@@ -1,14 +1,15 @@
-use std::rc::Rc;
+use std::{os::unix::fs::MetadataExt, rc::Rc};
 
 use camino::Utf8PathBuf;
 use itertools::{Either, Itertools};
 use msi::{Category, Column, Insert, Value};
+use uuid::Uuid;
 
 use crate::{
     builder::Msi,
     config::MsiConfig,
     error,
-    models::{directory::Directory, error::MsiError, file::File},
+    models::{directory::Directory, error::MsiError, file::File, sequencer::Sequencer},
 };
 
 pub(crate) fn add_paths(
@@ -47,6 +48,9 @@ fn scan_paths(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
 ) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    // Keeps track of the file installation order. The `File` object has a
+    // sequence field that needs to be
+    let mut file_sequencer = Sequencer::new(1);
     let mut directories = Vec::new();
     let mut files = Vec::new();
 
@@ -60,7 +64,8 @@ fn scan_paths(
         directories.append(default_dirs);
     }
 
-    let (scanned_dirs, scanned_files) = &mut scan_path(&Utf8PathBuf::from(input_directory))?;
+    let (scanned_dirs, scanned_files) =
+        &mut scan_path(&Utf8PathBuf::from(input_directory), &mut file_sequencer)?;
 
     directories.append(scanned_dirs);
     files.append(scanned_files);
@@ -106,6 +111,7 @@ fn add_default_directories(
             input_directory.join(program_files),
         ));
     };
+
     // Add the Program Files (x86) listing if it is included in the config.
     if let Some(program_files_32) = &files_section.program_files_32 {
         directories.append(&mut program_files_directory(
@@ -152,29 +158,34 @@ fn program_files_directory(
     program_files_label: String,
     source_dir: Utf8PathBuf,
 ) -> Vec<Directory> {
+    let program_folder_uuid = Uuid::new_v4().to_string();
+    let manufacturer_folder_uuid = Uuid::new_v4().to_string();
     vec![
         Directory {
             id: program_files_label.clone(),
             parent: Some("TARGETDIR".to_string()),
             name: ".".to_string(),
-            source: Some(source_dir),
+            source: None,
         },
         Directory {
-            id: "ManufacturerFolder".to_string(),
+            id: manufacturer_folder_uuid.clone(),
             parent: Some(program_files_label),
             name: config.product_info.manufacturer.to_string(),
             source: None,
         },
         Directory {
-            id: "INSTALLDIR".to_string(),
-            parent: Some("ManufacturerFolder".to_string()),
+            id: program_folder_uuid,
+            parent: Some(manufacturer_folder_uuid),
             name: config.product_info.product_name.to_string(),
-            source: None,
+            source: Some(source_dir),
         },
     ]
 }
 
-fn scan_path(scan_target: &Utf8PathBuf) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+fn scan_path(
+    scan_target: &Utf8PathBuf,
+    sequencer: &mut Sequencer,
+) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
     // Get the entries present in the `scan_target` directory.
     let directory_entries = match scan_target.read_dir_utf8() {
         Ok(dir) => dir,
@@ -234,7 +245,7 @@ fn scan_path(scan_target: &Utf8PathBuf) -> Result<(Vec<Directory>, Vec<File>), M
 
     // Convert all of the entries that are directories into PathBufs for later
     // use.
-    let (mut found_dir_paths, mut found_file_paths): (Vec<_>, Vec<_>) = ok_type_entries
+    let (found_dir_paths, found_file_paths): (Vec<_>, Vec<_>) = ok_type_entries
         .into_iter()
         // Only keep the entries that are either directories or files. We don't
         // care about symlinks or other file types.
@@ -260,7 +271,7 @@ fn scan_path(scan_target: &Utf8PathBuf) -> Result<(Vec<Directory>, Vec<File>), M
         (Default::default(), Default::default());
     for paths in found_dir_paths
         .iter()
-        .map(|d| scan_path(&Utf8PathBuf::from(d)))
+        .map(|d| scan_path(&Utf8PathBuf::from(d), sequencer))
     {
         match paths {
             Ok(paths) => {
@@ -274,7 +285,20 @@ fn scan_path(scan_target: &Utf8PathBuf) -> Result<(Vec<Directory>, Vec<File>), M
     }
 
     subdirs.append(&mut found_dir_paths.iter().map_into().collect_vec());
-    subdir_files.append(&mut found_file_paths.iter().map_into().collect_vec());
+
+    for file_path in found_file_paths {
+        let size = match file_path.metadata() {
+            Ok(metadata) => metadata.size(),
+            Err(err) => {
+                return Err(MsiError::nested(
+                    error!("Couldn't get metadata from file [{}]", file_path),
+                    err,
+                ))
+            }
+        };
+        let file = File::new(&file_path, sequencer.get(), size);
+        subdir_files.push(file);
+    }
 
     Ok((subdirs, subdir_files))
 }

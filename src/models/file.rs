@@ -1,4 +1,5 @@
 use camino::Utf8PathBuf;
+use uuid::Uuid;
 
 /// # [File](https://learn.microsoft.com/en-us/windows/win32/msi/file-table)
 ///
@@ -27,14 +28,25 @@ pub(crate) struct File {
     file_id: String,
     source: Utf8PathBuf,
     pub(crate) name: String,
+    pub(crate) size: u64,
     pub(crate) vital: bool,
     pub(crate) version: Option<String>,
     pub(crate) language: Option<String>,
-    pub(crate) sequence: usize,
+    pub(crate) sequence: u64,
 }
 
-impl From<&Utf8PathBuf> for File {
-    fn from(value: &Utf8PathBuf) -> Self {
-        todo!("Implement conversion from path buf to file")
+impl File {
+    pub fn new(value: &Utf8PathBuf, sequence_number: u64, size: u64) -> File {
+        File {
+            component_id: Uuid::new_v4().to_string(),
+            file_id: Uuid::new_v4().to_string(),
+            source: value.into(),
+            name: value.to_string(),
+            size,
+            vital: false,
+            version: None,
+            language: None,
+            sequence: sequence_number,
+        }
     }
 }
