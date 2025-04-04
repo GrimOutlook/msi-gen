@@ -11,6 +11,7 @@ use crate::{
     config::MsiConfig,
     error,
     helpers::{debug, warns},
+    info,
     models::{directory::Directory, error::MsiError, file::File, sequencer::Sequencer},
 };
 
@@ -25,10 +26,12 @@ pub(crate) fn add_paths(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
+    info!("Getting paths to include in the MSI");
     let (directories, fields) = scan_paths(config, input_directory)?;
 
     create_directory_table(package)?;
 
+    println!("{}", directories.len());
     let query = Insert::into("Directory").rows(
         directories
             .iter()
