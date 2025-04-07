@@ -433,7 +433,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "msi-builder"
+name = "msi-gen"
 version = "0.1.0"
 dependencies = [
  "camino",

@@ -90,7 +90,7 @@ pub(crate) struct ProductInformationProperties {
 ///
 /// - [`generating_application`](https://learn.microsoft.com/en-us/windows/win32/msi/creating-application-summary)
 ///   Contains the name of the software used to author this MSI. If this is not
-///   set in the config, it is populated with "MSI Builder".
+///   set in the config, it is populated with "msi-gen".
 ///
 #[derive(Deserialize)]
 #[serde(rename = "summary_info")]

@@ -1,2 +1,2 @@
-This is a test file for MSI Builder. If you see this in C:\Program
-Files\GrimOutlook\MSIBuilder-Test\ then MSIBuilder is working.
+This is a test file for msi-gen. If you see this in C:\Program
+Files\GrimOutlook\msi-gen-test\ then msi-gen is working.

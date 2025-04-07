@@ -1,9 +1,9 @@
 mod builder;
 mod command_line;
 mod config;
-mod scan;
 mod helpers;
 mod lister;
+mod scan;
 mod models {
     pub(crate) mod directory;
     pub mod error;
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
         .start()
         .expect("Couldn't start the logger");
 
-    info!("Starting MSI Builder...");
+    info!("Running msi-gen...");
     let ret = match args.command {
         Commands::Build {
             config,
@@ -57,11 +57,11 @@ fn main() -> ExitCode {
     match ret {
         Ok(_) => (),
         Err(e) => {
-            error!("MSI Builder operation failed. Error: {}", e);
+            error!("msi-gen operation failed. Error: {}", e);
             return ExitCode::FAILURE;
         }
     };
 
-    info!("MSI Builder operation succeeded");
+    info!("msi-gen operation succeeded");
     ExitCode::SUCCESS
 }

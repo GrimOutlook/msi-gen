@@ -1,5 +1,5 @@
 [product_info]
-product_name = "MSIBuilder-Test"
+product_name = "msi-gen-test"
 product_version = "1.2.3"
 manufacturer = "GrimOutlook"
 product_language = 1033
