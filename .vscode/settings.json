@@ -18,5 +18,6 @@
     "ex_dir": "examples/example_1",
     "config": "${config:ex_dir}/example.toml",
     "input": "${config:ex_dir}/files",
-    "output": "${config:ex_dir}/example_1.msi"
+    "output": "${config:ex_dir}/example_1.msi",
+    "explorer.excludeGitIgnore": true
 }

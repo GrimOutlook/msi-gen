@@ -1,3 +1,13 @@
-/.history
-/target
-*.msi
+# Whitelist mode
+*
+!*/
+
+!.vscode/**
+!src/**
+!examples/**
+
+
+!.gitignore
+!Cargo.lock
+!Cargo.toml
+!README.md

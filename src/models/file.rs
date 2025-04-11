@@ -1,7 +1,11 @@
+#![allow(unused)]
+
 use camino::Utf8PathBuf;
 use flexstr::LocalStr;
 use getset::Getters;
 use uuid::Uuid;
+
+use crate::traits::identifier::Identifier;
 
 /// # [File](https://learn.microsoft.com/en-us/windows/win32/msi/file-table)
 ///
@@ -25,7 +29,7 @@ use uuid::Uuid;
 /// - `sequence` Sequence position of this file on the media images. This order
 ///   must correspond to the order of the files in the cabinet if the files are
 ///   compressed. The integers in this field must be equal or greater than 1.
-#[derive(Clone, Getters)]
+#[derive(Clone, Debug, Getters)]
 #[getset(get = "pub")]
 pub(crate) struct File {
     component_id: LocalStr,
@@ -42,8 +46,8 @@ pub(crate) struct File {
 impl File {
     pub fn new(source: &Utf8PathBuf, sequence_number: u64, size: u64) -> File {
         File {
-            component_id: Uuid::new_v4().to_string().into(),
-            file_id: Uuid::new_v4().to_string().into(),
+            component_id: Uuid::as_identifier(),
+            file_id: Uuid::as_identifier(),
             source: source.into(),
             name: source.to_string().into(),
             size,

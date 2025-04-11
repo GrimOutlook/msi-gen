@@ -7,7 +7,7 @@ use std::{
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{config::MsiConfig, scan, models::error::MsiError};
+use crate::{config::MsiConfig, models::error::MsiError, scan};
 use crate::{helpers::error, info};
 
 // Make a shorthand way to refer to the package cursor for brevity.
@@ -90,15 +90,16 @@ fn check_config(config: &MsiConfig) -> Result<(), MsiError> {
         return Err(MsiError::short(msg));
     }
 
-    if let Some(default_files) = &config.default_files {
-        if default_files.program_files.is_none() && default_files.program_files_32.is_none() {
-            let msg = error!("No program files found in `[default_files]` section.");
-            error!(
-                "`program_files` or `program_files_32` must be present if `[default_files]` section is used."
-            );
-            return Err(MsiError::short(msg));
-        }
-    }
+    // TODO: Do I really need this check?
+    // if let Some(default_files) = &config.default_files {
+    //     if default_files.program_files.is_none() && default_files.program_files_32.is_none() {
+    //         let msg = error!("No program files found in `[default_files]` section.");
+    //         error!(
+    //             "`program_files` or `program_files_32` must be present if `[default_files]` section is used."
+    //         );
+    //         return Err(MsiError::short(msg));
+    //     }
+    // }
 
     Ok(())
 }
@@ -124,7 +125,7 @@ pub(crate) fn validate_paths(
 
     // Since parent returns None when you are at the root folder, it's fine to
     // just use the full path if we hit None as this should just end up being
-    // `/` or `C:\` which would be valid.
+    // `/` or `C:\` which is valid.
     let output_parent_dir = full_path.as_path().parent().unwrap_or(&full_path);
 
     let err_msg = if !config_path.exists() {

@@ -1,4 +1,4 @@
-use std::{os::unix::fs::MetadataExt, rc::Rc};
+use std::{os::windows::fs::MetadataExt, rc::Rc, str::FromStr};
 
 use camino::Utf8PathBuf;
 use flexstr::{local_str, LocalStr};
@@ -12,7 +12,10 @@ use crate::{
     error,
     helpers::{debug, warns},
     info,
-    models::{directory::Directory, error::MsiError, file::File, sequencer::Sequencer},
+    models::{
+        directory::Directory, error::MsiError, file::File, sequencer::Sequencer,
+    },
+    traits::identifier::Identifier,
 };
 
 const DOT: LocalStr = local_str!(".");
@@ -27,11 +30,10 @@ pub(crate) fn add_paths(
     input_directory: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
     info!("Getting paths to include in the MSI");
-    let (directories, fields) = scan_paths(config, input_directory)?;
+    let (directories, _fields) = scan_paths(config, input_directory)?;
 
     create_directory_table(package)?;
 
-    println!("{}", directories.len());
     let query = Insert::into("Directory").rows(
         directories
             .iter()
@@ -48,9 +50,9 @@ pub(crate) fn add_paths(
             .collect(),
     );
 
-    package
-        .insert_rows(query)
-        .expect("Failed to add directory rows to MSI");
+    if let Err(err) = package.insert_rows(query) {
+        return Err(MsiError::nested("Failed to insert row into table", err));
+    };
 
     Ok(())
 }
@@ -76,8 +78,11 @@ fn scan_paths(
     }
 
     if config.default_files.is_some() {
-        let (scanned_dirs, scanned_files) =
-            &mut add_default_directories(config, input_directory, &mut file_sequencer)?;
+        let (scanned_dirs, scanned_files) = &mut add_default_directories(
+            config,
+            input_directory,
+            &mut file_sequencer,
+        )?;
         directories.append(scanned_dirs);
         files.append(scanned_files);
     }
@@ -122,7 +127,7 @@ fn add_default_directories(
         default_directories.append(&mut program_files_directory(
             &config,
             PROGRAMFILES64FOLDER,
-            input_directory.join(program_files),
+            input_directory.join(Utf8PathBuf::from_str(program_files).unwrap()),
         ));
     };
 
@@ -131,7 +136,8 @@ fn add_default_directories(
         default_directories.append(&mut program_files_directory(
             &config,
             PROGRAMFILESFOLDER,
-            input_directory.join(program_files_32),
+            input_directory
+                .join(Utf8PathBuf::from_str(program_files_32).unwrap()),
         ));
     };
 
@@ -141,18 +147,19 @@ fn add_default_directories(
             "DesktopFolder".to_string(),
             Some(TARGETDIR),
             DOT,
-            Some(input_directory.join(desktop)),
+            Some(input_directory.join(Utf8PathBuf::from_str(desktop).unwrap())),
         ));
     };
 
     let mut directories = Vec::new();
     let mut files = Vec::new();
-    for directory in default_directories
-        .iter()
-        .filter_map(|d| d.source().clone())
-    {
+    for directory in default_directories {
+        let Some(path) = directory.source() else {
+            continue;
+        };
         // Scan the current path and append
-        let (scanned_dirs, scanned_files) = &mut scan_path(&directory, file_sequencer, "")?;
+        let (scanned_dirs, scanned_files) =
+            &mut scan_path(path, file_sequencer, directory.id())?;
         directories.append(scanned_dirs);
         files.append(scanned_files);
     }
@@ -185,8 +192,8 @@ fn program_files_directory(
     program_files_label: LocalStr,
     source_dir: Utf8PathBuf,
 ) -> Vec<Directory> {
-    let program_folder_uuid = Uuid::new_v4().to_string();
-    let manufacturer_folder_uuid = Uuid::new_v4().to_string();
+    let program_folder_uuid = Uuid::as_identifier();
+    let manufacturer_folder_uuid = Uuid::as_identifier();
     vec![
         Directory::new(program_files_label.clone(), Some(TARGETDIR), DOT, None),
         Directory::new(
@@ -197,7 +204,7 @@ fn program_files_directory(
         ),
         Directory::new(
             program_folder_uuid,
-            Some(manufacturer_folder_uuid.into()),
+            Some(manufacturer_folder_uuid),
             config.product_info.product_name.to_string(),
             Some(source_dir),
         ),
@@ -222,7 +229,8 @@ fn scan_path(
     };
 
     // Get all of the entries that did not return an `Err` when scanned.
-    let (ok_entries, errs): (Vec<_>, Vec<_>) = directory_entries.partition_result();
+    let (ok_entries, errs): (Vec<_>, Vec<_>) =
+        directory_entries.partition_result();
     // If any of them returned an error, short circuit and return that error.
     // May change this behavior based on config if desired in the future.
     if let Some(err) = errs.first() {
@@ -306,17 +314,21 @@ fn scan_path(
     // out but if I try to do `errs.first()`but that returns a reference and I
     // couldn't figure out how to get around the `cannot move out of `*err`
     // which is behind a shared reference`.
-    let (mut subdirs, mut subdir_files): (Vec<Directory>, Vec<File>) =
+    let (mut all_dirs, mut all_files): (Vec<Directory>, Vec<File>) =
         (Default::default(), Default::default());
-    for paths in found_directories
+    let path_scan_results = found_directories
         .iter()
-        .map(|dir| scan_path(&dir.source().as_ref().unwrap(), sequencer, dir.id()))
-    {
+        .map(|dir| {
+            all_dirs.push(dir.clone());
+            scan_path(dir.source().as_ref().unwrap(), sequencer, dir.id())
+        })
+        .collect_vec();
+    for paths in path_scan_results {
         match paths {
             Ok(paths) => {
                 let (mut found_dirs, mut found_files) = paths;
-                subdirs.append(&mut found_dirs);
-                subdir_files.append(&mut found_files);
+                all_dirs.append(&mut found_dirs);
+                all_files.append(&mut found_files);
             }
             // Short circuit if any errors were hit during the recursive scan.
             Err(err) => return Err(err),
@@ -325,7 +337,7 @@ fn scan_path(
 
     for file_path in found_file_paths {
         let size = match file_path.metadata() {
-            Ok(metadata) => metadata.size(),
+            Ok(metadata) => metadata.file_size(),
             Err(err) => {
                 return Err(MsiError::nested(
                     error!("Couldn't get metadata from file [{}]", file_path),
@@ -334,8 +346,8 @@ fn scan_path(
             }
         };
         let file = File::new(&file_path, sequencer.get(), size);
-        subdir_files.push(file);
+        all_files.push(file);
     }
 
-    Ok((subdirs, subdir_files))
+    Ok((all_dirs, all_files))
 }

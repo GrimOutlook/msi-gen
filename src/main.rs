@@ -10,6 +10,9 @@ mod models {
     pub(crate) mod file;
     pub mod sequencer;
 }
+mod traits {
+    pub(crate) mod identifier;
+}
 
 use std::process::ExitCode;
 

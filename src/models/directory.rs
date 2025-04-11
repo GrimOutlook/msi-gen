@@ -4,6 +4,8 @@ use flexstr::LocalStr;
 use getset::Getters;
 use uuid::Uuid;
 
+use crate::traits::identifier::Identifier;
+
 /// # [Directory](https://learn.microsoft.com/en-us/windows/win32/msi/directory-table)
 ///
 /// This structure tracks directories that are created and interacted with by
@@ -21,7 +23,7 @@ use uuid::Uuid;
 ///   This is optional because some of the default paths do not need to specify
 ///   a source, such as `DesktopFolder` and `ProgramFiles`, they are simply used
 ///   in the hierarchy.
-#[derive(Clone, Getters, new)]
+#[derive(Clone, Debug, Getters, new)]
 #[getset(get = "pub")]
 pub(crate) struct Directory {
     #[new(into)]
@@ -36,7 +38,7 @@ pub(crate) struct Directory {
 impl Directory {
     pub fn from_path(source: &Utf8PathBuf, parent_id: &str) -> Self {
         Directory {
-            id: Uuid::new_v4().to_string().into(),
+            id: Uuid::as_identifier(),
             parent_id: Some(parent_id.into()),
             name: source
                 .file_name()

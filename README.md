@@ -18,6 +18,8 @@ if you get any use out of it!
 
 - [MSI Reference
   Material](https://learn.microsoft.com/en-us/windows/win32/msi/specifying-directory-structure)
+- `example_2.msi` is an msi for DualMonitorTools v2.3. Chosen at random from the
+  smaller installers that were on my system.
 
 ## CI/CD Desires
 
