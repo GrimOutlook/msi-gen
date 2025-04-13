@@ -1,4 +1,8 @@
-use std::{os::windows::fs::MetadataExt, rc::Rc, str::FromStr};
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::MetadataExt;
+#[cfg(target_os = "windows")]
+use std::os::windows::fs::MetadataExt;
+use std::{rc::Rc, str::FromStr};
 
 use camino::Utf8PathBuf;
 use flexstr::{local_str, LocalStr};
@@ -337,7 +341,16 @@ fn scan_path(
 
     for file_path in found_file_paths {
         let size = match file_path.metadata() {
-            Ok(metadata) => metadata.file_size(),
+            Ok(metadata) => {
+                #[cfg(target_os = "linux")]
+                {
+                    metadata.size()
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    metadata.file_size()
+                }
+            }
             Err(err) => {
                 return Err(MsiError::nested(
                     error!("Couldn't get metadata from file [{}]", file_path),
