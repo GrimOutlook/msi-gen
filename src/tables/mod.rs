@@ -1,2 +1,3 @@
-pub(crate) mod file;
+pub(crate) mod component;
 pub(crate) mod directory;
+pub(crate) mod file;

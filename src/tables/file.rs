@@ -47,7 +47,9 @@ fn create_file_table(package: &mut Msi) -> Result<(), MsiError> {
             Column::build("FileName")
                 .category(Category::Filename)
                 .string(255),
-            Column::build("FileSize").int32(), // Marked as DoubleInteger
+            Column::build("FileSize")
+                .category(Category::DoubleInteger)
+                .int16(),
             Column::build("Version")
                 .nullable()
                 .category(Category::Version)

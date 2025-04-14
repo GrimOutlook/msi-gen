@@ -52,6 +52,8 @@ pub(crate) fn build(
         scan::scan_paths(config.clone(), input_directory)?;
 
     tables::directory::populate_directory_table(&mut package, &directories)?;
+    tables::component::populate_component_table(&mut package, &files)?;
+    tables::file::populate_file_table(&mut package, &files)?;
 
     write_msi(package, output_path)
 }
