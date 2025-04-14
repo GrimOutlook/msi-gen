@@ -4,6 +4,7 @@ mod config;
 mod helpers;
 mod lister;
 mod scan;
+pub(crate) mod tables;
 mod models {
     pub(crate) mod directory;
     pub mod error;

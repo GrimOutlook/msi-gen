@@ -28,82 +28,11 @@ const TARGETDIR: LocalStr = local_str!("TARGETDIR");
 const PROGRAMFILESFOLDER: LocalStr = local_str!("ProgramFilesFolder");
 const PROGRAMFILES64FOLDER: LocalStr = local_str!("ProgramFiles64Folder");
 
-pub(crate) fn add_paths(
-    package: &mut Msi,
-    config: Rc<MsiConfig>,
-    input_directory: &Utf8PathBuf,
-) -> Result<(), MsiError> {
-    info!("Getting paths to include in the MSI");
-    let (directories, files) = scan_paths(config, input_directory)?;
-    populate_directory_table(package, &directories)?;
-    populate_file_table(package, &files)?;
-
-    Ok(())
-}
-
-fn populate_directory_table(
-    package: &mut Msi,
-    directories: &Vec<Directory>,
-) -> Result<(), MsiError> {
-    create_directory_table(package)?;
-
-    let query = Insert::into("Directory").rows(
-        directories
-            .iter()
-            .map(|dir| {
-                vec![
-                    Value::from(dir.id().to_string()),
-                    match &dir.parent_id() {
-                        Some(p) => Value::from(p.to_string()),
-                        None => Value::Null,
-                    },
-                    Value::from(dir.name().to_string()),
-                ]
-            })
-            .collect(),
-    );
-
-    if let Err(err) = package.insert_rows(query) {
-        return Err(MsiError::nested("Failed to insert row into table", err));
-    };
-
-    Ok(())
-}
-
-fn populate_file_table(
-    package: &mut Msi,
-    files: &Vec<File>,
-) -> Result<(), MsiError> {
-    create_file_table(package)?;
-    unimplemented!();
-
-    // let query = Insert::into("File").rows(
-    //     files
-    //         .iter()
-    //         .map(|file| {
-    //             vec![
-    //                 Value::from(file.id().to_string()),
-    //                 match &dir.parent_id() {
-    //                     Some(p) => Value::from(p.to_string()),
-    //                     None => Value::Null,
-    //                 },
-    //                 Value::from(dir.name().to_string()),
-    //             ]
-    //         })
-    //         .collect(),
-    // );
-
-    // if let Err(err) = package.insert_rows(query) {
-    //     return Err(MsiError::nested("Failed to insert row into table", err));
-    // };
-
-    Ok(())
-}
-
-fn scan_paths(
+pub(crate) fn scan_paths(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
 ) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+    info!("Scanning paths to include in the MSI");
     // Keeps track of the file installation order. The `File` object has a
     // sequence field that needs to be
     let mut file_sequencer = Sequencer::new(1);
@@ -209,57 +138,6 @@ fn add_default_directories(
     }
 
     Ok((directories, files))
-}
-
-fn create_directory_table(package: &mut Msi) -> Result<(), MsiError> {
-    let result = package.create_table(
-        "Directory",
-        vec![
-            Column::build("Directory").primary_key().id_string(72),
-            Column::build("Directory_Parent").nullable().id_string(72),
-            Column::build("DefaultDir")
-                .category(Category::DefaultDir)
-                .string(255),
-        ],
-    );
-
-    if let Err(e) = result {
-        let err = error!("Failed to create Directory table: {}", e);
-        return Err(MsiError::nested(err, Box::new(e)));
-    }
-
-    Ok(())
-}
-
-fn create_file_table(package: &mut Msi) -> Result<(), MsiError> {
-    let result = package.create_table(
-        "File",
-        vec![
-            Column::build("File").primary_key().id_string(72),
-            Column::build("Component_").id_string(72),
-            Column::build("FileName")
-                .category(Category::Filename)
-                .string(255),
-            Column::build("FileSize").int32(), // Marked as DoubleInteger
-            Column::build("Version")
-                .nullable()
-                .category(Category::Version)
-                .string(72),
-            Column::build("Language")
-                .nullable()
-                .category(Category::Language)
-                .string(20),
-            Column::build("Attributes").nullable().int16(),
-            Column::build("Sequence").int16(),
-        ],
-    );
-
-    if let Err(e) = result {
-        let err = error!("Failed to create File table: {}", e);
-        return Err(MsiError::nested(err, Box::new(e)));
-    }
-
-    Ok(())
 }
 
 fn program_files_directory(

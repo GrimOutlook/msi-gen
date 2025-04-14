@@ -7,7 +7,7 @@ use std::{
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{config::MsiConfig, models::error::MsiError, scan};
+use crate::{config::MsiConfig, models::error::MsiError, scan, tables};
 use crate::{helpers::error, info};
 
 // Make a shorthand way to refer to the package cursor for brevity.
@@ -48,7 +48,10 @@ pub(crate) fn build(
     set_author(&mut package, config.clone());
 
     // Add the files from the input directory
-    scan::add_paths(&mut package, config.clone(), input_directory)?;
+    let (directories, files) =
+        scan::scan_paths(config.clone(), input_directory)?;
+
+    tables::directory::populate_directory_table(&mut package, &directories)?;
 
     write_msi(package, output_path)
 }
@@ -64,7 +67,10 @@ fn write_msi(package: Msi, output_path: &Utf8PathBuf) -> Result<(), MsiError> {
     let mut file = match File::create(output_path) {
         Ok(file) => file,
         Err(e) => {
-            let msg = error!("Failed to open output path {} for writing", output_path);
+            let msg = error!(
+                "Failed to open output path {} for writing",
+                output_path
+            );
             return Err(MsiError::nested(msg, e));
         }
     };
@@ -110,14 +116,15 @@ pub(crate) fn validate_paths(
     output_path: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
     // Convert the string (representing the path to scan) into an absolute path.
-    let full_path = match camino::absolute_utf8(Utf8PathBuf::from(&output_path)) {
+    let full_path = match camino::absolute_utf8(Utf8PathBuf::from(&output_path))
+    {
         Ok(full_path) => full_path,
         Err(e) => {
             return Err(MsiError::nested(
                 format!(
-                    "Failed to get full path for the passed in output path [{}]",
-                    output_path
-                ),
+                "Failed to get full path for the passed in output path [{}]",
+                output_path
+            ),
                 e,
             ))
         }
