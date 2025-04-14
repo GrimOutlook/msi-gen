@@ -155,10 +155,11 @@ fn add_default_directories(
         ));
     };
 
-    let mut directories = Vec::new();
+    let mut directories = default_directories.clone();
     let mut files = Vec::new();
     for directory in default_directories {
         let Some(path) = directory.source() else {
+            debug!("Not scanning directory [{}] for paths", directory.name());
             continue;
         };
         // Scan the current path and append
