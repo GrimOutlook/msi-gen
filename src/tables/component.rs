@@ -1,6 +1,7 @@
 // Populates the `File` table
 
-use msi::{Category, Column};
+use msi::{Category, Column, Insert, Value};
+use uuid::Uuid;
 
 use crate::{
     builder::Msi,
@@ -22,11 +23,9 @@ pub fn populate_component_table(
             .map(|file| {
                 vec![
                     Value::from(file.component_id().to_string()),
-                    match &dir.parent_id() {
-                        Some(p) => Value::from(p.to_string()),
-                        None => Value::Null,
-                    },
-                    Value::from(dir.name().to_string()),
+                    Value::from(Uuid::new_v4().to_string()),
+                    Value::from(file.name().to_string()),
+                    Value::from(file.vital() & 16),
                 ]
             })
             .collect(),
