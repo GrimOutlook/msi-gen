@@ -4,10 +4,11 @@ use std::{
     rc::Rc,
 };
 
+use anyhow::bail;
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{config::MsiConfig, models::error::MsiError, scan, tables};
+use crate::{config::MsiConfig, scan, tables};
 use crate::{helpers::error, info};
 
 // Make a shorthand way to refer to the package cursor for brevity.
@@ -17,7 +18,7 @@ pub(crate) fn build(
     config_path: &Utf8PathBuf,
     input_directory: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
-) -> Result<(), MsiError> {
+) -> anyhow::Result<()> {
     info!("Building MSI at output path {}", output_path);
     // Validate paths before continuing
     validate_paths(config_path, input_directory, output_path)?;
@@ -26,14 +27,14 @@ pub(crate) fn build(
         Ok(c) => c,
         Err(e) => {
             let err = error!("Failed to open config {}", config_path);
-            return Err(MsiError::nested(err, Box::new(e)));
+            bail!(e);
         }
     };
     let config: Rc<MsiConfig> = match toml::from_str(&raw_config) {
         Ok(c) => Rc::new(c),
         Err(e) => {
             let err = error!("Failed to parse config toml {}", config_path);
-            return Err(MsiError::nested(err, Box::new(e)));
+            bail!(err);
         }
     };
 

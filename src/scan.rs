@@ -4,21 +4,18 @@ use std::os::unix::fs::MetadataExt;
 use std::os::windows::fs::MetadataExt;
 use std::{rc::Rc, str::FromStr};
 
+use anyhow::bail;
 use camino::Utf8PathBuf;
 use flexstr::{local_str, LocalStr};
-use itertools::{Either, Itertools};
-use msi::{Category, Column, Insert, Value};
+use itertools::Itertools;
 use uuid::Uuid;
 
 use crate::{
-    builder::Msi,
     config::MsiConfig,
     error,
     helpers::{debug, warns},
     info,
-    models::{
-        directory::Directory, error::MsiError, file::File, sequencer::Sequencer,
-    },
+    models::{directory::Directory, file::File, sequencer::Sequencer},
     traits::identifier::Identifier,
 };
 
@@ -31,7 +28,7 @@ const PROGRAMFILES64FOLDER: LocalStr = local_str!("ProgramFiles64Folder");
 pub(crate) fn scan_paths(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
-) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+) -> anyhow::Result<(Vec<Directory>, Vec<File>)> {
     info!("Scanning paths to include in the MSI");
     // Keeps track of the file installation order. The `File` object has a
     // sequence field that needs to be
@@ -66,17 +63,17 @@ fn add_explicit_path_directories(
     _config: Rc<MsiConfig>,
     _input_directory: &Utf8PathBuf,
     _file_sequencer: &mut Sequencer,
-) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+) -> anyhow::Result<(Vec<Directory>, Vec<File>)> {
     warns!("Sorry! Explicit paths are currently not implemented.");
     // TODO: Finish implementing explicit path directories.
-    todo!("Explicit paths are currently not supported.");
+    unimplemented!("Explicit paths are currently not supported.");
 }
 
 fn add_default_directories(
     config: Rc<MsiConfig>,
     input_directory: &Utf8PathBuf,
     file_sequencer: &mut Sequencer,
-) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+) -> anyhow::Result<(Vec<Directory>, Vec<File>)> {
     debug!(
         "Adding default directories for input path [{}]",
         input_directory
@@ -168,16 +165,14 @@ fn scan_path(
     scan_target: &Utf8PathBuf,
     sequencer: &mut Sequencer,
     parent_directory_id: &str,
-) -> Result<(Vec<Directory>, Vec<File>), MsiError> {
+) -> anyhow::Result<(Vec<Directory>, Vec<File>)> {
     debug!("Scanning directory path [{}]", scan_target);
     // Get the entries present in the `scan_target` directory.
     let directory_entries = match scan_target.read_dir_utf8() {
         Ok(dir) => dir,
         Err(e) => {
-            return Err(MsiError::nested(
-                format!("Failed to read directory [{}]", scan_target),
-                e,
-            ));
+            error!("Failed to read directory [{}]", scan_target);
+            bail!(e);
         }
     };
 
@@ -186,22 +181,8 @@ fn scan_path(
         directory_entries.partition_result();
     // If any of them returned an error, short circuit and return that error.
     // May change this behavior based on config if desired in the future.
-    if let Some(err) = errs.first() {
-        // @GrimOutlook for future reference, DO NOT try to just pass `err` into
-        // the MsiError without reconstructing it into a new error. I just spent
-        // an hour trying to figure out why `err` gets dropped when doing this
-        // but I'm far too stupid it seems. Rust forums seem to indicate maybe
-        // std::io::Error stores a reference that gets dropped and it's lifetime
-        // is held to that but idk. Let someone smarter tell you the way to fix
-        // it because I guarantee it's simple but I cannot find it for the life
-        // of me. And don't start thinking that you just need to call `.clone()`
-        // on it. `std::io:Error` doesn't implement `Clone` and I tried cloning
-        // everything else (attempting to flail my way into an answer) to no
-        // avail.
-        return Err(MsiError::nested(
-            error!("Failed to read file inside {}", scan_target),
-            std::io::Error::new(err.kind(), err.to_string()),
-        ));
+    if let Some(_) = errs.first() {
+        bail!("Failed to read file inside {}", scan_target);
     }
 
     // Get all of the entries that have a valid file type. We need to check if
@@ -212,37 +193,24 @@ fn scan_path(
     // [`partition_result`](https://docs.rs/itertools/0.14.0/src/itertools/lib.rs.html#3669-3679)
     // in itertools to make this because I needed the entries back out, not the
     // filetypes that have to be checked.
-    let (ok_type_entries, errs): (Vec<_>, Vec<_>) =
-        ok_entries.iter().partition_map(|d| match d.file_type() {
-            Ok(filetype) => Either::Left((d, filetype)),
-            Err(e) => Either::Right(e),
-        });
-    // Short circuit if any of the filetypes were unable to be read.
-    //
-    // The block of text above about `std::io::Error`also applies here. Just
-    // don't think about it, it's fine.
-    if let Some(err) = errs.first() {
-        return Err(MsiError::nested(
-            error!("Failed to read file type from file inside {}", scan_target),
-            std::io::Error::new(err.kind(), err.to_string()),
-        ));
+    let mut ok_type_entries = Vec::new();
+    for entry in ok_entries {
+        let filetype = entry.file_type()?;
+        ok_type_entries.push((entry, filetype));
     }
 
     // Convert all of the entries that are directories into PathBufs for later
     // use.
-    let (found_dir_paths, found_file_paths): (Vec<_>, Vec<_>) = ok_type_entries
-        .into_iter()
+    let (mut found_dir_paths, mut found_file_paths) = (Vec::new(), Vec::new());
+    for (entry, filetype) in ok_type_entries {
         // Only keep the entries that are either directories or files. We don't
         // care about symlinks or other file types.
-        .filter(|(_entry, filetype)| filetype.is_dir() || filetype.is_file())
-        .map(|(entry, filetype)| (entry.path(), filetype))
-        .partition_map(|(entry, filetype)| {
-            if filetype.is_dir() {
-                Either::Left(entry.to_path_buf())
-            } else {
-                Either::Right(entry.to_path_buf())
-            }
-        });
+        if filetype.is_dir() {
+            found_dir_paths.push(entry.path().to_path_buf())
+        } else if filetype.is_file() {
+            found_file_paths.push(entry.path().to_path_buf())
+        }
+    }
 
     // Convert all of the found directories found in the scan_path directory to
     // Directory objects. We need to generate a UUID for them and have those
@@ -250,7 +218,9 @@ fn scan_path(
     // parent directory they are related to
     //
     // We only have to do this because we return Directory objects instead of
-    // just PathBuf objects. TODO: Look into only returning PathBuf objects and
+    // just PathBuf objects.
+    //
+    // TODO: Look into only returning PathBuf objects and
     // converting them outside of this function. I'm hesitant this will be much
     // cleaner because I feel like I'll just have to remake the structure
     // already present here but required more thought.
@@ -301,10 +271,8 @@ fn scan_path(
                 }
             }
             Err(err) => {
-                return Err(MsiError::nested(
-                    error!("Couldn't get metadata from file [{}]", file_path),
-                    err,
-                ))
+                error!("Couldn't get metadata from file [{}]", file_path);
+                return Err(err.into());
             }
         };
         let file = File::new(&file_path, sequencer.get(), size);
