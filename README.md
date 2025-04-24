@@ -1,4 +1,4 @@
-# msi-gen
+# msipmbuild
 
 This project is to create a command line tool that can be used on both Windows
 and Linux to create an MSI deliverable. The best alternative that I can find is
@@ -12,6 +12,7 @@ if you get any use out of it!
 
 ## Todo
 
+- [ ] Convert creation method to rpmbuild-esque
 - [ ] Convert MsiError to anyhow crate.
 
 ## Development

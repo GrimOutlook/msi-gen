@@ -39,7 +39,7 @@ fn main() -> ExitCode {
         .start()
         .expect("Couldn't start the logger");
 
-    info!("Running msi-gen...");
+    info!("Running msipmbuild...");
     let ret = match args.command {
         Commands::Build {
             config,
@@ -61,11 +61,11 @@ fn main() -> ExitCode {
     match ret {
         Ok(_) => (),
         Err(e) => {
-            error!("msi-gen operation failed. Error: {}", e);
+            error!("msipmbuild operation failed. Error: {}", e);
             return ExitCode::FAILURE;
         }
     };
 
-    info!("msi-gen operation succeeded");
+    info!("msipmbuild operation succeeded");
     ExitCode::SUCCESS
 }
