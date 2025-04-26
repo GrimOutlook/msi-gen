@@ -13,7 +13,7 @@ if you get any use out of it!
 ## Todo
 
 - [ ] Convert creation method to rpmbuild-esque
-- [ ] Convert MsiError to anyhow crate.
+- [ ] Convert MsiError to something more useful. Maybe look into tracebacks?
 
 ## Development
 

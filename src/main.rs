@@ -1,25 +1,11 @@
-mod builder;
-mod command_line;
-mod config;
-mod helpers;
-mod lister;
-mod scan;
-pub(crate) mod tables;
-mod models {
-    pub(crate) mod directory;
-    pub mod error;
-    pub(crate) mod file;
-    pub mod sequencer;
-}
-mod traits {
-    pub(crate) mod identifier;
-}
+pub(crate) mod command;
+pub(crate) mod modules;
 
 use std::process::ExitCode;
+use command::{builder, lister};
 
-use clap::Parser;
-use command_line::{AllowedToList, App, Commands};
-use helpers::{error, info};
+use crate::modules::helpers::log_return::{info, error};
+use crate::command::command_line::{App, Commands};
 
 fn main() -> ExitCode {
     // Read the passed in arguments
@@ -45,7 +31,7 @@ fn main() -> ExitCode {
             config,
             input_directory,
             output_path,
-        } => builder::build(&config, &input_directory, &output_path),
+        } => builder::build(&config, &output_path),
         Commands::Inspect {
             input_file,
             list_args,

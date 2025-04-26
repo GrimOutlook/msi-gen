@@ -21,7 +21,7 @@ pub(crate) enum Commands {
         /// Directory storing files used to be added to MSI
         #[arg(short, long)]
         input_directory: Utf8PathBuf,
-        /// Filepath to output. This should end with .msi
+        /// File path to output. This should end with `.msi`.
         #[arg(short, long)]
         output_path: Utf8PathBuf,
     },

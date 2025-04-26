@@ -8,21 +8,24 @@ use anyhow::bail;
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{config::MsiConfig, scan, tables};
-use crate::{helpers::error, info};
+use crate::{
+    error, info,
+    modules::{helpers::error::MsiError, tables},
+};
+use crate::modules::config::msi_config::MsiConfig;
 
 // Make a shorthand way to refer to the package cursor for brevity.
 pub(crate) type Msi = Package<Cursor<Vec<u8>>>;
 
 pub(crate) fn build(
     config_path: &Utf8PathBuf,
-    input_directory: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
-) -> anyhow::Result<()> {
+) -> Result<(), MsiError> {
     info!("Building MSI at output path {}", output_path);
     // Validate paths before continuing
-    validate_paths(config_path, input_directory, output_path)?;
-    // Read the config from the passed in path
+    validate_paths(config_path, output_path)?;
+   
+    // The toml library seems to only accept strings as input so we read the whole file in here.
     let raw_config = match read_to_string(config_path) {
         Ok(c) => c,
         Err(e) => {
@@ -30,6 +33,8 @@ pub(crate) fn build(
             bail!(e);
         }
     };
+
+    // Convert the string output into a usable TOML object.
     let config: Rc<MsiConfig> = match toml::from_str(&raw_config) {
         Ok(c) => Rc::new(c),
         Err(e) => {
