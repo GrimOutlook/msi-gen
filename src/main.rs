@@ -1,6 +1,7 @@
 pub(crate) mod command;
 pub(crate) mod modules;
 
+use clap::Parser;
 use std::process::ExitCode;
 use command::{builder, lister};
 

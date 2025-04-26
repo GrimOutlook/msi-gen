@@ -4,15 +4,17 @@ use std::{
     rc::Rc,
 };
 
-use anyhow::bail;
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
-use crate::{
-    error, info,
-    modules::{helpers::error::MsiError, tables},
-};
 use crate::modules::config::msi_config::MsiConfig;
+use crate::modules::{
+    helpers::{
+        error::MsiError,
+        log_return::{error, info},
+    },
+    tables,
+};
 
 // Make a shorthand way to refer to the package cursor for brevity.
 pub(crate) type Msi = Package<Cursor<Vec<u8>>>;
@@ -24,13 +26,15 @@ pub(crate) fn build(
     info!("Building MSI at output path {}", output_path);
     // Validate paths before continuing
     validate_paths(config_path, output_path)?;
-   
+
     // The toml library seems to only accept strings as input so we read the whole file in here.
     let raw_config = match read_to_string(config_path) {
         Ok(c) => c,
         Err(e) => {
-            let err = error!("Failed to open config {}", config_path);
-            bail!(e);
+            return MsiError::nested(
+                format!("Failed to open config {}", config_path),
+                e,
+            );
         }
     };
 
@@ -38,13 +42,12 @@ pub(crate) fn build(
     let config: Rc<MsiConfig> = match toml::from_str(&raw_config) {
         Ok(c) => Rc::new(c),
         Err(e) => {
-            let err = error!("Failed to parse config toml {}", config_path);
-            bail!(err);
+            return MsiError::nested(
+                format!("Failed to parse config toml {}", config_path),
+                e,
+            );
         }
     };
-
-    // Check the config for common errors
-    check_config(&config)?;
 
     // Create an empty MSI that we can populate.
     let cursor = Cursor::new(Vec::new());
@@ -75,7 +78,7 @@ fn write_msi(package: Msi, output_path: &Utf8PathBuf) -> Result<(), MsiError> {
     let mut file = match File::create(output_path) {
         Ok(file) => file,
         Err(e) => {
-            let msg = error!(
+            let msg = format!(
                 "Failed to open output path {} for writing",
                 output_path
             );
@@ -88,39 +91,15 @@ fn write_msi(package: Msi, output_path: &Utf8PathBuf) -> Result<(), MsiError> {
             Ok(())
         }
         Err(e) => {
-            let msg = error!("Failed to write MSI to location {}", output_path);
+            let msg =
+                format!("Failed to write MSI to location {}", output_path);
             Err(MsiError::nested(msg, e))
         }
     }
 }
 
-fn check_config(config: &MsiConfig) -> Result<(), MsiError> {
-    if config.default_files.is_none() && config.explicit_files.is_none() {
-        let msg = error!("No files specified for MSI.");
-        error!(
-            "Files should be specified under `[default_files]` and `[explicit_files]` sections."
-        );
-        error!("To disable this error use the `--no-files` flag.");
-        return Err(MsiError::short(msg));
-    }
-
-    // TODO: Do I really need this check?
-    // if let Some(default_files) = &config.default_files {
-    //     if default_files.program_files.is_none() && default_files.program_files_32.is_none() {
-    //         let msg = error!("No program files found in `[default_files]` section.");
-    //         error!(
-    //             "`program_files` or `program_files_32` must be present if `[default_files]` section is used."
-    //         );
-    //         return Err(MsiError::short(msg));
-    //     }
-    // }
-
-    Ok(())
-}
-
 pub(crate) fn validate_paths(
     config_path: &Utf8PathBuf,
-    input_directory: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
 ) -> Result<(), MsiError> {
     // Convert the string (representing the path to scan) into an absolute path.
@@ -147,16 +126,6 @@ pub(crate) fn validate_paths(
         Some(error!("Config path {} does not exist", config_path))
     } else if !config_path.is_file() {
         Some(error!("Config path {} is not a file", config_path))
-    } else if !input_directory.exists() {
-        Some(error!(
-            "Input directory {} does not exists",
-            input_directory
-        ))
-    } else if !input_directory.is_dir() {
-        Some(error!(
-            "Input directory {} is not a directory",
-            input_directory
-        ))
     } else if output_path.parent().is_none() {
         Some(error!(
             "Output path {} is not valid a valid filepath.",

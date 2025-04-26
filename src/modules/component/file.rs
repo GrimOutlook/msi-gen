@@ -5,7 +5,7 @@ use flexstr::LocalStr;
 use getset::Getters;
 use uuid::Uuid;
 
-use crate::traits::identifier::Identifier;
+use crate::modules::traits::identifier::Identifier;
 
 /// # [File](https://learn.microsoft.com/en-us/windows/win32/msi/file-table)
 ///

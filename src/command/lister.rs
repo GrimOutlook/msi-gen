@@ -1,12 +1,13 @@
 use camino::Utf8PathBuf;
 use cli_table::{Cell, CellStruct, Style, Table};
-use flexstr::{LocalStr, SharedStr};
+use flexstr::SharedStr;
 use msi::{Package, Select};
 use std::fs::File;
 
-use crate::helpers::{debug, error, info};
+use crate::modules::helpers::log_return::{debug, error, info};
 
-use crate::{models::error::MsiError, AllowedToList as ATL};
+use crate::modules::helpers::error::MsiError;
+use super::command_line::AllowedToList as ATL;
 
 pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> Result<String, MsiError> {
     info!("Reading MSI {}", input_file);
@@ -15,7 +16,7 @@ pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> Result<String, M
     let mut msi = match msi::open_rw(input_file) {
         Ok(msi) => msi,
         Err(e) => {
-            let msg = error!("Failed to open MSI");
+            let msg = format!("Failed to open MSI");
             return Err(MsiError::nested(msg, e));
         }
     };
@@ -30,9 +31,9 @@ pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> Result<String, M
 
 pub(crate) fn validate_paths(input_file: &Utf8PathBuf) -> Result<(), MsiError> {
     let err_msg = if !input_file.exists() {
-        Some(error!("Input file {} does not exist", input_file))
+        Some(format!("Input file {} does not exist", input_file))
     } else if !input_file.is_file() {
-        Some(error!("Input file {} is not a file", input_file))
+        Some(format!("Input file {} is not a file", input_file))
     } else {
         None
     };
