@@ -1,35 +1,44 @@
+use anyhow::bail;
+use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use cli_table::{Cell, CellStruct, Style, Table};
 use flexstr::SharedStr;
+use log::debug;
+use log::error;
+use log::info;
 use msi::{Package, Select};
-use std::fs::File;
+use std::{fs::File, process::ExitCode};
 
-use crate::modules::helpers::log_return::{debug, error, info};
-
-use crate::modules::helpers::error::MsiError;
 use super::command_line::AllowedToList as ATL;
 
-pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> Result<String, MsiError> {
+pub(crate) fn list(input_file: &Utf8PathBuf, list_item: ATL) -> ExitCode {
     info!("Reading MSI {}", input_file);
-    validate_paths(input_file)?;
 
-    let mut msi = match msi::open_rw(input_file) {
+    let mut msi = match msi::open_rw(input_file)
+        .with_context(|| "Failed to open {input_file}")
+    {
         Ok(msi) => msi,
-        Err(e) => {
-            let msg = format!("Failed to open MSI");
-            return Err(MsiError::nested(msg, e));
+        Err(err) => {
+            error!("Failed to read MSI {input_file}.\n{err}");
+            return ExitCode::FAILURE;
         }
     };
 
-    match list_item {
+    let ret = match list_item {
         ATL::Author => list_author(msi),
         ATL::Tables => list_tables(msi),
         ATL::TableColumns { table } => list_table_columns(msi, table),
         ATL::TableContents { table } => list_table_contents(&mut msi, table),
+    };
+    if let Err(err) = ret {
+        error!("Error while trying to inspect MSI.\n{err}");
+        return ExitCode::FAILURE;
+    } else {
+        return ExitCode::SUCCESS;
     }
 }
 
-pub(crate) fn validate_paths(input_file: &Utf8PathBuf) -> Result<(), MsiError> {
+pub(crate) fn validate_paths(input_file: &Utf8PathBuf) -> Result<()> {
     let err_msg = if !input_file.exists() {
         Some(format!("Input file {} does not exist", input_file))
     } else if !input_file.is_file() {
@@ -38,32 +47,32 @@ pub(crate) fn validate_paths(input_file: &Utf8PathBuf) -> Result<(), MsiError> {
         None
     };
 
-    if let Some(msg) = err_msg {
-        return Err(MsiError::short(msg));
-    }
+    err_msg.with_context(|| format!("Failed to validate paths."))?;
     Ok(())
 }
 
-fn list_author(msi: Package<File>) -> Result<String, MsiError> {
+fn list_author(msi: Package<File>) -> Result<String> {
     debug!("Listing author of MSI");
-    let author = msi.summary_info().author().unwrap_or_default();
+    let author = msi
+        .summary_info()
+        .author()
+        .with_context(|| format!("Couldn't find author in MSI"))?;
     Ok(author.to_owned())
 }
 
-fn list_tables(msi: Package<File>) -> Result<String, MsiError> {
+fn list_tables(msi: Package<File>) -> Result<String> {
     debug!("Listing tables in MSI");
     let tables = msi.tables().map(|t| t.name()).collect::<Vec<&str>>();
     Ok(tables.join("\n"))
 }
 
 /// List the columns present in the given table
-fn list_table_columns(msi: Package<File>, table: SharedStr) -> Result<String, MsiError> {
+fn list_table_columns(msi: Package<File>, table: SharedStr) -> Result<String> {
     debug!("Listing the columns of table {} in MSI", table);
     let table = match msi.get_table(&table) {
         Some(table) => table,
         None => {
-            let err = error!("Table {} could not be found in MSI", table);
-            return Err(MsiError::short(err));
+            bail!("Table {} could not be found in MSI", table)
         }
     };
 
@@ -94,16 +103,17 @@ fn list_table_columns(msi: Package<File>, table: SharedStr) -> Result<String, Ms
 }
 
 /// List the contents of the given table
-fn list_table_contents(msi: &mut Package<File>, table_name: SharedStr) -> Result<String, MsiError> {
+fn list_table_contents(
+    msi: &mut Package<File>,
+    table_name: SharedStr,
+) -> Result<String> {
     debug!("Listing the contents of table {} in MSI", table_name);
 
-    let rows = match msi.select_rows(Select::table(table_name.to_string())) {
-        Ok(rows) => rows,
-        Err(e) => {
-            let err = error!("Failed to get rows from table {}", table_name);
-            return Err(MsiError::nested(err, Box::new(e)));
-        }
-    };
+    let rows = msi
+        .select_rows(Select::table(table_name.to_string()))
+        .with_context(|| {
+            format!("Failed to get rows from table {table_name}")
+        })?;
 
     let columns = rows
         .columns()
@@ -127,6 +137,6 @@ fn list_table_contents(msi: &mut Package<File>, table_name: SharedStr) -> Result
 
     Ok(table
         .display()
-        .expect("Failed to display table")
+        .with_context(|| format!("Failed to display table {table_name}"))?
         .to_string())
 }

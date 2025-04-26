@@ -2,7 +2,7 @@ pub(crate) mod command;
 pub(crate) mod modules;
 
 use clap::Parser;
-use modules::helpers::log_return::{error, info};
+use log::{error, info};
 use std::process::ExitCode;
 use command::{builder, lister};
 
