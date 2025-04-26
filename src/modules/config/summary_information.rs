@@ -41,7 +41,7 @@ use serde::Deserialize;
 ///
 /// - [`generating_application`](https://learn.microsoft.com/en-us/windows/win32/msi/creating-application-summary)
 ///   Contains the name of the software used to author this MSI. If this is not
-///   set in the config, it is populated with "msipmbuild".
+///   set in the config, it is populated with "whimsi".
 ///
 #[derive(Deserialize)]
 #[serde(rename = "summary_info")]

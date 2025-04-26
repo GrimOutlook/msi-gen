@@ -1,9 +1,8 @@
 use std::{
-    fs::{read_to_string, File},
-    io::{Cursor, Write},
-    rc::Rc,
+    fs::{read_to_string, File}, io::{Cursor, Write}, process::ExitCode, rc::Rc
 };
 
+use anyhow::Context;
 use camino::Utf8PathBuf;
 use msi::{Package, PackageType};
 
@@ -12,6 +11,7 @@ use crate::modules::{
     helpers::{
         error::MsiError,
         log_return::{error, info},
+        scn
     },
     tables,
 };
@@ -22,30 +22,28 @@ pub(crate) type Msi = Package<Cursor<Vec<u8>>>;
 pub(crate) fn build(
     config_path: &Utf8PathBuf,
     output_path: &Utf8PathBuf,
-) -> Result<(), MsiError> {
+) -> ExitCode {
     info!("Building MSI at output path {}", output_path);
     // Validate paths before continuing
-    validate_paths(config_path, output_path)?;
+    let Ok(_) = validate_paths(config_path, output_path)? else {
+        return ExitCode::FAILURE;
+    };
 
     // The toml library seems to only accept strings as input so we read the whole file in here.
-    let raw_config = match read_to_string(config_path) {
+    let raw_config = match read_to_string(config_path).with_context(|| format!("Failed to parse config file [{config_path}]")) {
         Ok(c) => c,
         Err(e) => {
-            return MsiError::nested(
-                format!("Failed to open config {}", config_path),
-                e,
-            );
+            error!(e);
+            return ExitCode::FAILURE;
         }
     };
 
     // Convert the string output into a usable TOML object.
-    let config: Rc<MsiConfig> = match toml::from_str(&raw_config) {
+    let config: Rc<MsiConfig> = match toml::from_str(&raw_config).with_context(|| format!("Failed to parse TOML data from config file {config_path}")) {
         Ok(c) => Rc::new(c),
         Err(e) => {
-            return MsiError::nested(
-                format!("Failed to parse config toml {}", config_path),
-                e,
-            );
+            error!(e);
+            return ExitCode::FAILURE;
         }
     };
 
@@ -58,7 +56,10 @@ pub(crate) fn build(
 
     // Add the files from the input directory
     let (directories, files) =
-        scan::scan_paths(config.clone(), input_directory)?;
+        scan::scan_paths(config.clone(), input_directory).with_context(|| "Failed while scanning file system") else {
+        error!(e);
+        return ExitCode::FAILURE;
+    };
 
     tables::directory::populate_directory_table(&mut package, &directories)?;
     tables::component::populate_component_table(&mut package, &files)?;

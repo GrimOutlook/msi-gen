@@ -1,2 +1,2 @@
-mod file;
-mod directory;
+pub(crate) mod file;
+pub(crate) mod directory;

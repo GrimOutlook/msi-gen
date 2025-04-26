@@ -1,2 +1,2 @@
-This is a test file for msipmbuild. If you see this in C:\Program
-Files\GrimOutlook\msipmbuild-test\ then msi-gen is working.
+This is a test file for whimsi. If you see this in C:\Program
+Files\GrimOutlook\whimsi-test\ then msi-gen is working.
